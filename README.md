@@ -1,13 +1,16 @@
 # Hanassik
 
-Hanassik is a Flutter MVP for storing repeatable work sequences as templates, starting a work run from a template, and checking each step off as the work progresses.
+Hanassik is an Android-first Flutter MVP for saving repeatable work sequences
+as templates, starting checklist runs from those templates, and checking each
+step off as work progresses.
 
-## MVP scope
+## Features
 
 - Create reusable task templates with ordered steps.
 - Start a checklist run from any saved template.
 - Check and uncheck steps in an active run.
 - Track progress and completion status.
+- Recover gracefully from corrupted local checklist data.
 - Persist templates and runs locally with `shared_preferences`.
 
 ## Platform
@@ -15,6 +18,12 @@ Hanassik is a Flutter MVP for storing repeatable work sequences as templates, st
 Hanassik is an Android-first mobile MVP. The Flutter web files remain available
 for lightweight browser checks, but product decisions and validation should
 prioritize small-screen Android use.
+
+## Requirements
+
+- `mise`
+- Android device or emulator for mobile development
+- GitHub CLI authentication when publishing with `gh`
 
 ## Data and privacy
 
@@ -30,7 +39,7 @@ deployment, serve the app from a dedicated origin and set standard security
 headers such as Content Security Policy, `frame-ancestors`, `Referrer-Policy`,
 and `Permissions-Policy` at the hosting layer.
 
-## Run
+## Development
 
 Install the pinned Flutter, Android SDK command-line tools, JDK, Gradle, and
 GitHub CLI with `mise`:
@@ -82,3 +91,7 @@ Run checks with:
 ```sh
 mise run check
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
