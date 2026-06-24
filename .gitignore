@@ -1,0 +1,51 @@
+# Misc
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.history/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.jks
+*.keystore
+key.properties
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Dart/Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+app.*.symbols
+app.*.map.json
+
+# Native platform build artifacts
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/.last_build_id
+macos/Pods/
+macos/.symlinks/
+macos/Flutter/ephemeral/
+
+# Local mise overrides. Keep mise.toml tracked.
+.mise.local.toml

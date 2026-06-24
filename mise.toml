@@ -1,0 +1,34 @@
+[tools]
+flutter = "3.24.5"
+
+[tasks.install]
+description = "Install Flutter dependencies"
+run = "flutter pub get"
+
+[tasks.format]
+description = "Format Dart sources"
+run = "dart format lib test"
+
+[tasks."format:check"]
+description = "Check Dart formatting"
+run = "dart format --set-exit-if-changed lib test"
+
+[tasks.analyze]
+description = "Run Flutter analyzer"
+run = "flutter analyze"
+
+[tasks.test]
+description = "Run Flutter tests"
+run = "flutter test"
+
+[tasks.check]
+description = "Run formatting, analysis, and tests"
+run = [
+  "dart format --set-exit-if-changed lib test",
+  "flutter analyze",
+  "flutter test",
+]
+
+[tasks.dev]
+description = "Run the Flutter web app in Chrome"
+run = "flutter run -d chrome"
