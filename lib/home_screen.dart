@@ -163,9 +163,20 @@ class RunsView extends StatelessWidget {
           ),
         if (doneRuns.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
-            '완료된 업무 ${doneRuns.length}개',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '완료된 업무 ${doneRuns.length}개',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _deleteCompletedRuns(context, doneRuns.length),
+                icon: const Icon(Icons.delete_sweep_outlined),
+                label: const Text('완료 기록 정리'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           for (final run in doneRuns)
@@ -196,6 +207,35 @@ class RunsView extends StatelessWidget {
     } on Object {
       if (context.mounted) {
         _showError(context, '진행 업무를 삭제하지 못했습니다.');
+      }
+    }
+  }
+
+  Future<void> _deleteCompletedRuns(
+    BuildContext context,
+    int completedCount,
+  ) async {
+    final confirmed = await _confirmDelete(
+      context,
+      title: '완료된 업무 삭제',
+      message: '완료된 업무 $completedCount개를 삭제할까요?',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    try {
+      final deletedCount = await store.deleteCompletedRuns();
+      if (!context.mounted || deletedCount == 0) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('완료된 업무 $deletedCount개를 삭제했습니다.')),
+      );
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '완료된 업무를 삭제하지 못했습니다.');
       }
     }
   }

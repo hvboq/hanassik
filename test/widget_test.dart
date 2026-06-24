@@ -34,6 +34,42 @@ void main() {
     expect(find.text('1/5 완료'), findsOneWidget);
   });
 
+  testWidgets('clears completed runs after confirmation', (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이 템플릿으로 시작'));
+    await tester.pumpAndSettle();
+
+    for (var index = 0; index < 5; index++) {
+      await tester.tap(find.byType(CheckboxListTile).at(index));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('완료된 업무 1개'), findsOneWidget);
+
+    await tester.tap(find.text('완료 기록 정리'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('완료된 업무 삭제'), findsOneWidget);
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('완료된 업무 1개'), findsOneWidget);
+
+    await tester.tap(find.text('완료 기록 정리'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('완료된 업무 1개'), findsNothing);
+    expect(find.text('진행 중인 업무가 없습니다'), findsOneWidget);
+    expect(find.text('완료된 업무 1개를 삭제했습니다.'), findsOneWidget);
+  });
+
   testWidgets('shows a recovery notice for corrupted local data',
       (tester) async {
     SharedPreferences.setMockInitialValues({

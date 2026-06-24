@@ -155,6 +155,21 @@ class HanassikStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<int> deleteCompletedRuns() async {
+    final nextRuns = runs.where((run) => !run.isDone).toList();
+    final deletedCount = runs.length - nextRuns.length;
+    if (deletedCount == 0) {
+      return 0;
+    }
+
+    await _saveRuns(nextRuns);
+    runs
+      ..clear()
+      ..addAll(nextRuns);
+    notifyListeners();
+    return deletedCount;
+  }
+
   void dismissRecoveryNotice() {
     if (!recoveredFromStorage) {
       return;

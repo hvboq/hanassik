@@ -177,6 +177,35 @@ void main() {
 
     expect(store.runs, hasLength(HanassikStore.maxSavedRuns));
   });
+
+  test('deleteCompletedRuns removes only completed runs', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final store = HanassikStore(preferences);
+
+    await store.startRun(
+      WorkTemplate(id: 'done', title: '완료 업무', steps: ['마무리']),
+    );
+    await store.startRun(
+      WorkTemplate(id: 'active', title: '진행 업무', steps: ['확인']),
+    );
+
+    final doneRun = store.runs.firstWhere(
+      (run) => run.templateTitle == '완료 업무',
+    );
+    await store.toggleStep(doneRun.id, 0, true);
+
+    final deletedCount = await store.deleteCompletedRuns();
+
+    expect(deletedCount, 1);
+    expect(store.runs, hasLength(1));
+    expect(store.runs.single.templateTitle, '진행 업무');
+    expect(store.runs.single.isDone, isFalse);
+
+    final secondDeleteCount = await store.deleteCompletedRuns();
+
+    expect(secondDeleteCount, 0);
+    expect(store.runs, hasLength(1));
+  });
 }
 
 String _repeat(String value, int count) {
