@@ -113,6 +113,42 @@ void main() {
     expect(secondLoad.recoveredFromStorage, isFalse);
   });
 
+  test('updateTemplate edits an existing template in place', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final store = HanassikStore(preferences);
+
+    await store.addTemplate('기존 템플릿', ['첫 번째']);
+
+    final originalId = store.templates.single.id;
+
+    final updated = await store.updateTemplate(
+      originalId,
+      '  수정한 템플릿  ',
+      ['', '  새 첫 번째  ', '새 두 번째'],
+    );
+
+    expect(updated, isTrue);
+    expect(store.templates, hasLength(1));
+    expect(store.templates.single.id, originalId);
+    expect(store.templates.single.title, '수정한 템플릿');
+    expect(store.templates.single.steps, ['새 첫 번째', '새 두 번째']);
+
+    final missingUpdate = await store.updateTemplate(
+      'missing',
+      '없는 템플릿',
+      ['단계'],
+    );
+    final invalidUpdate = await store.updateTemplate(
+      originalId,
+      ' ',
+      ['단계'],
+    );
+
+    expect(missingUpdate, isFalse);
+    expect(invalidUpdate, isFalse);
+    expect(store.templates.single.title, '수정한 템플릿');
+  });
+
   test('addTemplate and startRun apply storage limits', () async {
     final preferences = await SharedPreferences.getInstance();
     final store = HanassikStore(preferences);

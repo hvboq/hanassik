@@ -158,6 +158,37 @@ void main() {
     expect(find.widgetWithText(TextFormField, '체크 항목 3'), findsNothing);
   });
 
+  testWidgets('edits an existing template', (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('수정'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('업무 템플릿 수정'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '템플릿 이름'),
+      '수정된 온보딩',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '체크 항목 1'),
+      '수정된 첫 단계',
+    );
+
+    final updateButton = find.widgetWithText(FilledButton, '수정');
+    await tester.ensureVisible(updateButton);
+    await tester.tap(updateButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('수정된 온보딩'), findsOneWidget);
+    expect(find.text('1. 수정된 첫 단계'), findsOneWidget);
+    expect(find.text('신규 고객 온보딩'), findsNothing);
+  });
+
   testWidgets('requires confirmation before deleting a template',
       (tester) async {
     await tester.pumpWidget(const HanassikApp());

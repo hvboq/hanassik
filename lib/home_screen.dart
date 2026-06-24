@@ -351,6 +351,11 @@ class TemplatesView extends StatelessWidget {
                       ),
                     ),
                     IconButton(
+                      tooltip: '수정',
+                      onPressed: () => _editTemplate(context, template),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    IconButton(
                       tooltip: '삭제',
                       onPressed: () => _deleteTemplate(context, template),
                       icon: const Icon(Icons.delete_outline),
@@ -401,6 +406,20 @@ class TemplatesView extends StatelessWidget {
     }
   }
 
+  Future<void> _editTemplate(
+    BuildContext context,
+    WorkTemplate template,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AddTemplateSheet(
+        store: store,
+        template: template,
+      ),
+    );
+  }
+
   Future<void> _deleteTemplate(
     BuildContext context,
     WorkTemplate template,
@@ -425,9 +444,14 @@ class TemplatesView extends StatelessWidget {
 }
 
 class AddTemplateSheet extends StatefulWidget {
-  const AddTemplateSheet({super.key, required this.store});
+  const AddTemplateSheet({
+    super.key,
+    required this.store,
+    this.template,
+  });
 
   final HanassikStore store;
+  final WorkTemplate? template;
 
   @override
   State<AddTemplateSheet> createState() => _AddTemplateSheetState();
@@ -435,14 +459,31 @@ class AddTemplateSheet extends StatefulWidget {
 
 class _AddTemplateSheetState extends State<AddTemplateSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final List<TextEditingController> _stepControllers = [
-    TextEditingController(),
-    TextEditingController(),
-    TextEditingController(),
-  ];
+  late final TextEditingController _titleController;
+  late final List<TextEditingController> _stepControllers;
   bool _isSaving = false;
   String? _stepsError;
+
+  bool get _isEditing => widget.template != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final template = widget.template;
+    _titleController = TextEditingController(text: template?.title ?? '');
+    _stepControllers = [
+      for (final step in template?.steps ?? const <String>[])
+        TextEditingController(text: step),
+    ];
+
+    if (_stepControllers.isEmpty) {
+      _stepControllers.addAll([
+        TextEditingController(),
+        TextEditingController(),
+        TextEditingController(),
+      ]);
+    }
+  }
 
   @override
   void dispose() {
@@ -471,7 +512,7 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '업무 템플릿 만들기',
+                  _isEditing ? '업무 템플릿 수정' : '업무 템플릿 만들기',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -554,7 +595,7 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _isSaving ? null : _save,
-                    child: Text(_isSaving ? '저장 중...' : '저장'),
+                    child: Text(_saveButtonLabel),
                   ),
                 ),
               ],
@@ -587,7 +628,18 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
     });
 
     try {
-      await widget.store.addTemplate(_titleController.text.trim(), steps);
+      if (_isEditing) {
+        final saved = await widget.store.updateTemplate(
+          widget.template!.id,
+          _titleController.text.trim(),
+          steps,
+        );
+        if (!saved) {
+          throw StateError('템플릿 수정에 실패했습니다.');
+        }
+      } else {
+        await widget.store.addTemplate(_titleController.text.trim(), steps);
+      }
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -603,6 +655,13 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
         });
       }
     }
+  }
+
+  String get _saveButtonLabel {
+    if (_isSaving) {
+      return _isEditing ? '수정 중...' : '저장 중...';
+    }
+    return _isEditing ? '수정' : '저장';
   }
 
   void _addStep() {

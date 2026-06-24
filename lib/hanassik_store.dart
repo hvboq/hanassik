@@ -96,6 +96,32 @@ class HanassikStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> updateTemplate(
+    String id,
+    String title,
+    List<String> steps,
+  ) async {
+    final templateIndex = templates.indexWhere((template) => template.id == id);
+    if (templateIndex == -1) {
+      return false;
+    }
+
+    final template = _buildTemplate(title: title, steps: steps, id: id);
+    if (template == null) {
+      return false;
+    }
+
+    final nextTemplates = List<WorkTemplate>.from(templates);
+    nextTemplates[templateIndex] = template;
+
+    await _saveTemplates(nextTemplates);
+    templates
+      ..clear()
+      ..addAll(nextTemplates);
+    notifyListeners();
+    return true;
+  }
+
   Future<void> startRun(WorkTemplate template) async {
     final normalizedTemplate = _buildTemplate(
       title: template.title,
