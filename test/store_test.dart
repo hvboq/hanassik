@@ -242,6 +242,25 @@ void main() {
     expect(secondDeleteCount, 0);
     expect(store.runs, hasLength(1));
   });
+
+  test('WorkRun exposes remaining count and next unchecked step', () {
+    final run = WorkRun(
+      id: 'run',
+      templateTitle: '점검',
+      steps: ['첫 번째', '두 번째', '세 번째'],
+      checked: [true, false, false],
+      startedAt: DateTime(2026, 6, 24),
+    );
+
+    expect(run.completedCount, 1);
+    expect(run.remainingCount, 2);
+    expect(run.nextUncheckedIndex, 1);
+
+    final doneRun = run.copyWith(checked: [true, true, true]);
+
+    expect(doneRun.remainingCount, 0);
+    expect(doneRun.nextUncheckedIndex, isNull);
+  });
 }
 
 String _repeat(String value, int count) {

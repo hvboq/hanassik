@@ -69,46 +69,62 @@ class HanassikHome extends StatelessWidget {
 
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('하나씩'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: '진행 업무'),
-              Tab(text: '템플릿'),
-            ],
-          ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showTemplateSheet(context),
-          icon: const Icon(Icons.add),
-          label: const Text('템플릿 만들기'),
-        ),
-        body: Column(
-          children: [
-            if (store.recoveredFromStorage)
-              MaterialBanner(
-                content: const Text(
-                  '일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.',
-                ),
-                leading: const Icon(Icons.info_outline),
-                actions: [
-                  TextButton(
-                    onPressed: store.dismissRecoveryNotice,
-                    child: const Text('확인'),
+      child: Builder(
+        builder: (context) {
+          final tabController = DefaultTabController.of(context);
+
+          return AnimatedBuilder(
+            animation: tabController,
+            builder: (context, _) {
+              final isTemplatesTab = tabController.index == 1;
+              final canShowCreateButton = isTemplatesTab || store.runs.isEmpty;
+
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('하나씩'),
+                  bottom: const TabBar(
+                    tabs: [
+                      Tab(text: '진행 업무'),
+                      Tab(text: '템플릿'),
+                    ],
                   ),
-                ],
-              ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  RunsView(store: store, activeCount: activeCount),
-                  TemplatesView(store: store),
-                ],
-              ),
-            ),
-          ],
-        ),
+                ),
+                floatingActionButton: canShowCreateButton
+                    ? FloatingActionButton.extended(
+                        onPressed: () => _showTemplateSheet(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('템플릿 만들기'),
+                      )
+                    : null,
+                body: Column(
+                  children: [
+                    if (store.recoveredFromStorage)
+                      MaterialBanner(
+                        content: const Text(
+                          '일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.',
+                        ),
+                        leading: const Icon(Icons.info_outline),
+                        actions: [
+                          TextButton(
+                            onPressed: store.dismissRecoveryNotice,
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          RunsView(store: store, activeCount: activeCount),
+                          TemplatesView(store: store),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -145,10 +161,31 @@ class RunsView extends StatelessWidget {
 
     final activeRuns = store.runs.where((run) => !run.isDone).toList();
     final doneRuns = store.runs.where((run) => run.isDone).toList();
+    final totalStepCount = store.runs.fold<int>(
+      0,
+      (total, run) => total + run.steps.length,
+    );
+    final completedStepCount = store.runs.fold<int>(
+      0,
+      (total, run) => total + run.completedCount,
+    );
+    final remainingStepCount = activeRuns.fold<int>(
+      0,
+      (total, run) => total + run.remainingCount,
+    );
+    final overallProgress =
+        totalStepCount == 0 ? 0.0 : completedStepCount / totalStepCount;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        RunsSummary(
+          activeCount: activeCount,
+          completedCount: doneRuns.length,
+          remainingStepCount: remainingStepCount,
+          progress: overallProgress,
+        ),
+        const SizedBox(height: 20),
         Text(
           '진행 중 $activeCount개',
           style: Theme.of(context).textTheme.titleMedium,
@@ -158,7 +195,8 @@ class RunsView extends StatelessWidget {
           RunCard(
             key: ValueKey(run.id),
             run: run,
-            onToggle: (index, value) => store.toggleStep(run.id, index, value),
+            onToggle: (index, value) =>
+                _toggleRunStep(context, run, index, value),
             onDelete: () => _deleteRun(context, run),
           ),
         if (doneRuns.isNotEmpty) ...[
@@ -184,12 +222,27 @@ class RunsView extends StatelessWidget {
               key: ValueKey(run.id),
               run: run,
               onToggle: (index, value) =>
-                  store.toggleStep(run.id, index, value),
+                  _toggleRunStep(context, run, index, value),
               onDelete: () => _deleteRun(context, run),
             ),
         ],
       ],
     );
+  }
+
+  Future<void> _toggleRunStep(
+    BuildContext context,
+    WorkRun run,
+    int index,
+    bool value,
+  ) async {
+    try {
+      await store.toggleStep(run.id, index, value);
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '체크 상태를 저장하지 못했습니다.');
+      }
+    }
   }
 
   Future<void> _deleteRun(BuildContext context, WorkRun run) async {
@@ -241,6 +294,102 @@ class RunsView extends StatelessWidget {
   }
 }
 
+class RunsSummary extends StatelessWidget {
+  const RunsSummary({
+    super.key,
+    required this.activeCount,
+    required this.completedCount,
+    required this.remainingStepCount,
+    required this.progress,
+  });
+
+  final int activeCount;
+  final int completedCount;
+  final int remainingStepCount;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '현재 진행 상황',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(value: progress),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SummaryMetric(
+                icon: Icons.play_circle_outline,
+                label: '진행',
+                value: '$activeCount개',
+              ),
+              _SummaryMetric(
+                icon: Icons.radio_button_unchecked,
+                label: '남은 항목',
+                value: '$remainingStepCount개',
+              ),
+              _SummaryMetric(
+                icon: Icons.check_circle_outline,
+                label: '완료',
+                value: '$completedCount개',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryMetric extends StatelessWidget {
+  const _SummaryMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Text('$label $value'),
+        ],
+      ),
+    );
+  }
+}
+
 class RunCard extends StatelessWidget {
   const RunCard({
     super.key,
@@ -250,12 +399,13 @@ class RunCard extends StatelessWidget {
   });
 
   final WorkRun run;
-  final void Function(int index, bool value) onToggle;
+  final Future<void> Function(int index, bool value) onToggle;
   final Future<void> Function() onDelete;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final nextUncheckedIndex = run.nextUncheckedIndex;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -298,6 +448,13 @@ class RunCard extends StatelessWidget {
             LinearProgressIndicator(value: run.progress),
             const SizedBox(height: 8),
             Text('${run.completedCount}/${run.steps.length} 완료'),
+            if (nextUncheckedIndex != null) ...[
+              const SizedBox(height: 12),
+              NextStepPanel(
+                step: run.steps[nextUncheckedIndex],
+                onComplete: () => onToggle(nextUncheckedIndex, true),
+              ),
+            ],
             const Divider(height: 24),
             for (var index = 0; index < run.steps.length; index++)
               CheckboxListTile(
@@ -309,6 +466,68 @@ class RunCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class NextStepPanel extends StatelessWidget {
+  const NextStepPanel({
+    super.key,
+    required this.step,
+    required this.onComplete,
+  });
+
+  final String step;
+  final Future<void> Function() onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.flag_outlined,
+                size: 18,
+                color: colorScheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '다음 할 일',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            step,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: onComplete,
+              icon: const Icon(Icons.done),
+              label: const Text('다음 항목 완료'),
+            ),
+          ),
+        ],
       ),
     );
   }

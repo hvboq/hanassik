@@ -53,6 +53,18 @@ class WorkRun {
     return count;
   }
 
+  int get remainingCount => steps.length - completedCount;
+
+  int? get nextUncheckedIndex {
+    for (var index = 0; index < steps.length; index++) {
+      if (!checked[index]) {
+        return index;
+      }
+    }
+
+    return null;
+  }
+
   double get progress {
     if (steps.isEmpty) {
       return 0;

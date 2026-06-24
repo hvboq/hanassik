@@ -9,6 +9,7 @@ step off as work progresses.
 - Create reusable task templates with ordered steps.
 - Start a checklist run from any saved template.
 - Check and uncheck steps in an active run.
+- See progress, remaining work, and the next actionable step at a glance.
 - Track progress and completion status.
 - Recover gracefully from corrupted local checklist data.
 - Persist templates and runs locally with `shared_preferences`.

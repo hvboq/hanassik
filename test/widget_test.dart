@@ -25,13 +25,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('"신규 고객 온보딩" 업무를 시작했습니다.'), findsOneWidget);
+    expect(find.text('현재 진행 상황'), findsOneWidget);
+    expect(find.text('남은 항목 5개'), findsOneWidget);
+    expect(find.text('다음 할 일'), findsOneWidget);
     expect(find.text('진행 중 1개'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(5));
 
-    await tester.tap(find.byType(CheckboxListTile).first);
+    await tester.tap(find.text('다음 항목 완료'));
     await tester.pumpAndSettle();
 
     expect(find.text('1/5 완료'), findsOneWidget);
+    expect(find.text('남은 항목 4개'), findsOneWidget);
   });
 
   testWidgets('clears completed runs after confirmation', (tester) async {
@@ -44,7 +48,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var index = 0; index < 5; index++) {
-      await tester.tap(find.byType(CheckboxListTile).at(index));
+      await tester.tap(find.text('다음 항목 완료'));
       await tester.pumpAndSettle();
     }
 
