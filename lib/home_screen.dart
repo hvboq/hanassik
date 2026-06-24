@@ -402,6 +402,7 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
     TextEditingController(),
   ];
   bool _isSaving = false;
+  String? _stepsError;
 
   @override
   void dispose() {
@@ -454,33 +455,57 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                 for (var index = 0; index < _stepControllers.length; index++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: TextFormField(
-                      controller: _stepControllers[index],
-                      decoration:
-                          InputDecoration(labelText: '체크 항목 ${index + 1}'),
-                      maxLength: HanassikStore.maxStepLength,
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (index == 0 && text.isEmpty) {
-                          return '최소 1개 항목이 필요합니다.';
-                        }
-                        if (text.length > HanassikStore.maxStepLength) {
-                          return '체크 항목은 ${HanassikStore.maxStepLength}자까지 입력할 수 있습니다.';
-                        }
-                        return null;
-                      },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _stepControllers[index],
+                            decoration: InputDecoration(
+                              labelText: '체크 항목 ${index + 1}',
+                            ),
+                            maxLength: HanassikStore.maxStepLength,
+                            onChanged: (_) => _clearStepsErrorIfNeeded(),
+                            textInputAction:
+                                index == _stepControllers.length - 1
+                                    ? TextInputAction.done
+                                    : TextInputAction.next,
+                            validator: (value) {
+                              final text = value?.trim() ?? '';
+                              if (text.length > HanassikStore.maxStepLength) {
+                                return '체크 항목은 ${HanassikStore.maxStepLength}자까지 입력할 수 있습니다.';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        if (_stepControllers.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, top: 4),
+                            child: IconButton(
+                              tooltip: '항목 삭제',
+                              onPressed: () => _removeStep(index),
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (_stepsError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      _stepsError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 TextButton.icon(
                   onPressed: _stepControllers.length >=
                           HanassikStore.maxStepsPerTemplate
                       ? null
-                      : () {
-                          setState(() {
-                            _stepControllers.add(TextEditingController());
-                          });
-                        },
+                      : _addStep,
                   icon: const Icon(Icons.add),
                   label: const Text('항목 추가'),
                 ),
@@ -509,9 +534,16 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
         .map((controller) => controller.text.trim())
         .where((text) => text.isNotEmpty)
         .toList();
+    if (steps.isEmpty) {
+      setState(() {
+        _stepsError = '최소 1개 항목이 필요합니다.';
+      });
+      return;
+    }
 
     setState(() {
       _isSaving = true;
+      _stepsError = null;
     });
 
     try {
@@ -531,6 +563,49 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
         });
       }
     }
+  }
+
+  void _addStep() {
+    if (_stepControllers.length >= HanassikStore.maxStepsPerTemplate) {
+      return;
+    }
+
+    setState(() {
+      _stepControllers.add(TextEditingController());
+      _stepsError = null;
+    });
+  }
+
+  void _removeStep(int index) {
+    if (_stepControllers.length == 1 ||
+        index < 0 ||
+        index >= _stepControllers.length) {
+      return;
+    }
+
+    final controller = _stepControllers[index];
+    setState(() {
+      _stepControllers.removeAt(index);
+      _stepsError = null;
+    });
+    controller.dispose();
+  }
+
+  void _clearStepsErrorIfNeeded() {
+    if (_stepsError == null) {
+      return;
+    }
+
+    final hasStep = _stepControllers.any(
+      (controller) => controller.text.trim().isNotEmpty,
+    );
+    if (!hasStep) {
+      return;
+    }
+
+    setState(() {
+      _stepsError = null;
+    });
   }
 }
 

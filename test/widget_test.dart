@@ -80,6 +80,48 @@ void main() {
     expect(find.text('3. 보고서 공유'), findsOneWidget);
   });
 
+  testWidgets('saves a template when any checklist item has text',
+      (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('템플릿 만들기'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '템플릿 이름'), '첫 칸 비움');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '체크 항목 2'), '두 번째 항목');
+
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('첫 칸 비움'), findsOneWidget);
+    expect(find.text('1. 두 번째 항목'), findsOneWidget);
+    expect(find.text('최소 1개 항목이 필요합니다.'), findsNothing);
+  });
+
+  testWidgets('removes checklist item fields while creating a template',
+      (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('템플릿 만들기'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextFormField, '체크 항목 3'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('항목 삭제').at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextFormField, '체크 항목 1'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, '체크 항목 2'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, '체크 항목 3'), findsNothing);
+  });
+
   testWidgets('requires confirmation before deleting a template',
       (tester) async {
     await tester.pumpWidget(const HanassikApp());
