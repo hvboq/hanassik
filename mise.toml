@@ -1,9 +1,33 @@
 [tools]
 flutter = "3.24.5"
+android-sdk = "21.0"
+java = "corretto-21.0.11.10.1"
+gradle = "8.3.0"
+gh = "2.95.0"
 
 [tasks.install]
 description = "Install Flutter dependencies"
 run = "flutter pub get"
+
+[tasks."android:sdk:install"]
+description = "Install Android SDK packages required for Flutter Android builds"
+run = 'sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-34" "build-tools;34.0.0"'
+
+[tasks."android:sdk:list"]
+description = "List installed and available Android SDK packages"
+run = 'sdkmanager --sdk_root="$ANDROID_HOME" --list'
+
+[tasks."android:licenses"]
+description = "Review and accept Android SDK licenses interactively"
+run = 'sdkmanager --sdk_root="$ANDROID_HOME" --licenses'
+
+[tasks."android:doctor"]
+description = "Check Flutter and Android development environment"
+run = "flutter doctor -v"
+
+[tasks."gh:auth"]
+description = "Check GitHub CLI authentication status"
+run = "gh auth status"
 
 [tasks.format]
 description = "Format Dart sources"
@@ -30,5 +54,13 @@ run = [
 ]
 
 [tasks.dev]
+description = "Run the app on a connected Android device or emulator"
+run = "flutter run"
+
+[tasks."dev:web"]
 description = "Run the Flutter web app in Chrome"
 run = "flutter run -d chrome"
+
+[tasks."build:android:debug"]
+description = "Build a debug Android APK"
+run = "flutter build apk --debug"

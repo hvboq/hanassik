@@ -24,9 +24,7 @@ void main() {
     await tester.tap(find.text('이 템플릿으로 시작'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(Tab, '진행 업무'));
-    await tester.pumpAndSettle();
-
+    expect(find.text('"신규 고객 온보딩" 업무를 시작했습니다.'), findsOneWidget);
     expect(find.text('진행 중 1개'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(5));
 
@@ -34,6 +32,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1/5 완료'), findsOneWidget);
+  });
+
+  testWidgets('shows a recovery notice for corrupted local data',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'hanassik.hasSeededDefaults': true,
+      'hanassik.templates': 'not-json',
+    });
+
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.'), findsOneWidget);
+
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.'), findsNothing);
   });
 
   testWidgets('creates a custom template', (tester) async {
@@ -62,5 +78,31 @@ void main() {
     expect(find.text('1. 자료 수집'), findsOneWidget);
     expect(find.text('2. 금액 대조'), findsOneWidget);
     expect(find.text('3. 보고서 공유'), findsOneWidget);
+  });
+
+  testWidgets('requires confirmation before deleting a template',
+      (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.text('템플릿 삭제'), findsOneWidget);
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('신규 고객 온보딩'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('저장된 템플릿이 없습니다'), findsOneWidget);
   });
 }

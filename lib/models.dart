@@ -19,9 +19,9 @@ class WorkTemplate {
 
   factory WorkTemplate.fromJson(Map<String, dynamic> json) {
     return WorkTemplate(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      steps: List<String>.from(json['steps'] as List<dynamic>),
+      id: _readString(json['id']),
+      title: _readString(json['title']),
+      steps: _readStringList(json['steps']),
     );
   }
 }
@@ -31,9 +31,9 @@ class WorkRun {
     required this.id,
     required this.templateTitle,
     required this.steps,
-    required this.checked,
+    required List<bool> checked,
     required this.startedAt,
-  });
+  }) : checked = _fitChecked(checked, steps.length);
 
   final String id;
   final String templateTitle;
@@ -41,7 +41,17 @@ class WorkRun {
   final List<bool> checked;
   final DateTime startedAt;
 
-  int get completedCount => checked.where((value) => value).length;
+  int get completedCount {
+    var count = 0;
+    final length =
+        checked.length < steps.length ? checked.length : steps.length;
+    for (var index = 0; index < length; index++) {
+      if (checked[index]) {
+        count++;
+      }
+    }
+    return count;
+  }
 
   double get progress {
     if (steps.isEmpty) {
@@ -73,12 +83,61 @@ class WorkRun {
   }
 
   factory WorkRun.fromJson(Map<String, dynamic> json) {
+    final steps = _readStringList(json['steps']);
+    final rawChecked = _readBoolList(json['checked']);
+
     return WorkRun(
-      id: json['id'] as String,
-      templateTitle: json['templateTitle'] as String,
-      steps: List<String>.from(json['steps'] as List<dynamic>),
-      checked: List<bool>.from(json['checked'] as List<dynamic>),
-      startedAt: DateTime.parse(json['startedAt'] as String),
+      id: _readString(json['id']),
+      templateTitle: _readString(json['templateTitle']),
+      steps: steps,
+      checked: List<bool>.generate(
+        steps.length,
+        (index) => index < rawChecked.length ? rawChecked[index] : false,
+      ),
+      startedAt:
+          DateTime.tryParse(_readString(json['startedAt'])) ?? DateTime.now(),
     );
   }
+}
+
+String _readString(Object? value) {
+  if (value is String) {
+    return value.trim();
+  }
+  return '';
+}
+
+List<String> _readStringList(Object? value) {
+  if (value is! List) {
+    return [];
+  }
+
+  return value
+      .whereType<String>()
+      .map((text) => text.trim())
+      .where((text) => text.isNotEmpty)
+      .toList();
+}
+
+List<bool> _readBoolList(Object? value) {
+  if (value is! List) {
+    return [];
+  }
+
+  return value.whereType<bool>().toList();
+}
+
+List<bool> _fitChecked(List<bool> checked, int length) {
+  if (checked.length == length) {
+    return List<bool>.from(checked);
+  }
+
+  if (checked.length > length) {
+    return checked.take(length).toList();
+  }
+
+  return [
+    ...checked,
+    ...List<bool>.filled(length - checked.length, false),
+  ];
 }

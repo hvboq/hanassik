@@ -24,6 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return FutureBuilder<HanassikStore>(
       future: _storeFuture,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Scaffold(
+            body: LoadErrorState(),
+          );
+        }
+
         if (!snapshot.hasData) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -35,6 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, _) => HanassikHome(store: snapshot.data!),
         );
       },
+    );
+  }
+}
+
+class LoadErrorState extends StatelessWidget {
+  const LoadErrorState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const EmptyState(
+      icon: Icons.error_outline,
+      title: '데이터를 불러오지 못했습니다',
+      message: '브라우저 저장소를 확인한 뒤 앱을 다시 열어주세요.',
     );
   }
 }
@@ -65,10 +84,29 @@ class HanassikHome extends StatelessWidget {
           icon: const Icon(Icons.add),
           label: const Text('템플릿 만들기'),
         ),
-        body: TabBarView(
+        body: Column(
           children: [
-            RunsView(store: store, activeCount: activeCount),
-            TemplatesView(store: store),
+            if (store.recoveredFromStorage)
+              MaterialBanner(
+                content: const Text(
+                  '일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.',
+                ),
+                leading: const Icon(Icons.info_outline),
+                actions: [
+                  TextButton(
+                    onPressed: store.dismissRecoveryNotice,
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  RunsView(store: store, activeCount: activeCount),
+                  TemplatesView(store: store),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -101,8 +139,12 @@ class RunsView extends StatelessWidget {
         icon: Icons.playlist_add_check_circle_outlined,
         title: '진행 중인 업무가 없습니다',
         message: '템플릿 탭에서 반복 업무를 시작하면 체크리스트가 만들어집니다.',
+        actionLabel: '템플릿 보기',
       );
     }
+
+    final activeRuns = store.runs.where((run) => !run.isDone).toList();
+    final doneRuns = store.runs.where((run) => run.isDone).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -112,15 +154,50 @@ class RunsView extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
-        for (final run in store.runs)
+        for (final run in activeRuns)
           RunCard(
             key: ValueKey(run.id),
             run: run,
             onToggle: (index, value) => store.toggleStep(run.id, index, value),
-            onDelete: () => store.deleteRun(run.id),
+            onDelete: () => _deleteRun(context, run),
           ),
+        if (doneRuns.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            '완료된 업무 ${doneRuns.length}개',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          for (final run in doneRuns)
+            RunCard(
+              key: ValueKey(run.id),
+              run: run,
+              onToggle: (index, value) =>
+                  store.toggleStep(run.id, index, value),
+              onDelete: () => _deleteRun(context, run),
+            ),
+        ],
       ],
     );
+  }
+
+  Future<void> _deleteRun(BuildContext context, WorkRun run) async {
+    final confirmed = await _confirmDelete(
+      context,
+      title: '진행 업무 삭제',
+      message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    try {
+      await store.deleteRun(run.id);
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '진행 업무를 삭제하지 못했습니다.');
+      }
+    }
   }
 }
 
@@ -134,7 +211,7 @@ class RunCard extends StatelessWidget {
 
   final WorkRun run;
   final void Function(int index, bool value) onToggle;
-  final VoidCallback onDelete;
+  final Future<void> Function() onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +249,7 @@ class RunCard extends StatelessWidget {
                   ),
                 IconButton(
                   tooltip: '삭제',
-                  onPressed: onDelete,
+                  onPressed: () => onDelete(),
                   icon: const Icon(Icons.delete_outline),
                 ),
               ],
@@ -235,7 +312,7 @@ class TemplatesView extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: '삭제',
-                      onPressed: () => store.deleteTemplate(template.id),
+                      onPressed: () => _deleteTemplate(context, template),
                       icon: const Icon(Icons.delete_outline),
                     ),
                   ],
@@ -253,7 +330,7 @@ class TemplatesView extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => store.startRun(template),
+                    onPressed: () => _startRun(context, template),
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('이 템플릿으로 시작'),
                   ),
@@ -264,6 +341,46 @@ class TemplatesView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _startRun(BuildContext context, WorkTemplate template) async {
+    try {
+      await store.startRun(template);
+      if (!context.mounted) {
+        return;
+      }
+
+      DefaultTabController.of(context).animateTo(0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${template.title}" 업무를 시작했습니다.')),
+      );
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '진행 업무를 시작하지 못했습니다.');
+      }
+    }
+  }
+
+  Future<void> _deleteTemplate(
+    BuildContext context,
+    WorkTemplate template,
+  ) async {
+    final confirmed = await _confirmDelete(
+      context,
+      title: '템플릿 삭제',
+      message: '"${template.title}" 템플릿을 삭제할까요?',
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    try {
+      await store.deleteTemplate(template.id);
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '템플릿을 삭제하지 못했습니다.');
+      }
+    }
   }
 }
 
@@ -284,6 +401,7 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
     TextEditingController(),
     TextEditingController(),
   ];
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -319,10 +437,15 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                 TextFormField(
                   controller: _titleController,
                   decoration: const InputDecoration(labelText: '템플릿 이름'),
+                  maxLength: HanassikStore.maxTitleLength,
                   textInputAction: TextInputAction.next,
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) {
                       return '템플릿 이름을 입력하세요.';
+                    }
+                    if (text.length > HanassikStore.maxTitleLength) {
+                      return '템플릿 이름은 ${HanassikStore.maxTitleLength}자까지 입력할 수 있습니다.';
                     }
                     return null;
                   },
@@ -335,23 +458,29 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                       controller: _stepControllers[index],
                       decoration:
                           InputDecoration(labelText: '체크 항목 ${index + 1}'),
+                      maxLength: HanassikStore.maxStepLength,
                       textInputAction: TextInputAction.next,
-                      validator: index == 0
-                          ? (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return '최소 1개 항목이 필요합니다.';
-                              }
-                              return null;
-                            }
-                          : null,
+                      validator: (value) {
+                        final text = value?.trim() ?? '';
+                        if (index == 0 && text.isEmpty) {
+                          return '최소 1개 항목이 필요합니다.';
+                        }
+                        if (text.length > HanassikStore.maxStepLength) {
+                          return '체크 항목은 ${HanassikStore.maxStepLength}자까지 입력할 수 있습니다.';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _stepControllers.add(TextEditingController());
-                    });
-                  },
+                  onPressed: _stepControllers.length >=
+                          HanassikStore.maxStepsPerTemplate
+                      ? null
+                      : () {
+                          setState(() {
+                            _stepControllers.add(TextEditingController());
+                          });
+                        },
                   icon: const Icon(Icons.add),
                   label: const Text('항목 추가'),
                 ),
@@ -359,8 +488,8 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _save,
-                    child: const Text('저장'),
+                    onPressed: _isSaving ? null : _save,
+                    child: Text(_isSaving ? '저장 중...' : '저장'),
                   ),
                 ),
               ],
@@ -381,10 +510,26 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
         .where((text) => text.isNotEmpty)
         .toList();
 
-    await widget.store.addTemplate(_titleController.text.trim(), steps);
+    setState(() {
+      _isSaving = true;
+    });
 
-    if (mounted) {
-      Navigator.of(context).pop();
+    try {
+      await widget.store.addTemplate(_titleController.text.trim(), steps);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } on Object {
+      if (mounted) {
+        _showError(context, '템플릿을 저장하지 못했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 }
@@ -395,11 +540,13 @@ class EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
+    this.actionLabel,
   });
 
   final IconData icon;
   final String title;
   final String message;
+  final String? actionLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -418,11 +565,50 @@ class EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (actionLabel != null) ...[
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => DefaultTabController.of(context).animateTo(1),
+                child: Text(actionLabel!),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+Future<bool> _confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('취소'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('삭제'),
+        ),
+      ],
+    ),
+  );
+
+  return confirmed ?? false;
+}
+
+void _showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
 }
 
 String _formatStartedAt(DateTime value) {
