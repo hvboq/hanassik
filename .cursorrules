@@ -1,0 +1,27 @@
+# Hanassik Project - AI Assistant Guidelines
+
+Welcome! You are assisting with the **Hanassik** project, an Android-first Flutter MVP for saving repeatable work sequences as templates, starting checklist runs, and checking off steps. 
+These rules are designed to help you (Gemini, Claude, GPT, or Codex) maintain consistency and quality in this codebase.
+
+## 1. Project Overview & Tech Stack
+- **Framework**: Flutter (Dart >= 3.5.0)
+- **Target Platform**: Android-first (Mobile UI constraints apply).
+- **State & Data**: `shared_preferences` for local-first, offline storage. No heavy state management libraries (e.g., Bloc, Riverpod) are currently used. Rely on standard `setState` or simple controllers.
+- **Environment Management**: `mise` is used for tool versions (Flutter, Java, Android SDK).
+
+## 2. Code Architecture & Core Files
+- `lib/main.dart`: App entry point. Handles Material 3 configuration, routing, and Light/Dark theme (System mode).
+- `lib/models.dart`: Contains `WorkTemplate` (templates) and `WorkRun` (active checklist runs) data classes, along with their JSON serialization logic.
+- `lib/hanassik_store.dart`: Handles read/write operations to local storage using `shared_preferences`.
+- `lib/home_screen.dart`: The main UI component containing the list of templates, runs, and the `AddTemplateSheet` (which uses `ReorderableListView` for drag-and-drop).
+
+## 3. Coding Conventions & Best Practices
+- **UI/UX**: Strictly follow Material 3 design guidelines. Use the primary seed color `0xFF2F6B4F`. Ensure components are responsive and finger-friendly for Android screens.
+- **Keys**: When dealing with lists of mutable items (like `TextEditingController`s in `ReorderableListView`), always use `ObjectKey(controller)` rather than `ValueKey` to prevent state loss.
+- **Null Safety**: Strict Dart null safety is enforced. Never use `!` unless you are 100% certain. Prefer safe unwrapping.
+- **Data Privacy**: This is a local-first MVP. Do not implement any network calls, cloud syncing, or remote logging without explicit user instruction.
+- **Dependencies**: Do not add third-party dependencies to `pubspec.yaml` unless absolutely necessary for MVP functionality.
+
+## 4. Development Workflow
+- When writing tests or analyzing, use `mise run check` or `flutter analyze`.
+- For building, refer to `mise run build:android:debug`.

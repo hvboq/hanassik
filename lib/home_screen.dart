@@ -192,12 +192,40 @@ class RunsView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         for (final run in activeRuns)
-          RunCard(
-            key: ValueKey(run.id),
-            run: run,
-            onToggle: (index, value) =>
-                _toggleRunStep(context, run, index, value),
-            onDelete: () => _deleteRun(context, run),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Dismissible(
+              key: ValueKey('dismiss_run_${run.id}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.error,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.only(right: 20),
+                alignment: Alignment.centerRight,
+                child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+              ),
+              confirmDismiss: (_) => _confirmDelete(
+                context,
+                title: '진행 업무 삭제',
+                message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
+              ),
+              onDismissed: (_) async {
+                try {
+                  await store.deleteRun(run.id);
+                } on Object {
+                  if (context.mounted) {
+                    _showError(context, '진행 업무를 삭제하지 못했습니다.');
+                  }
+                }
+              },
+              child: RunCard(
+                run: run,
+                onToggle: (index, value) =>
+                    _toggleRunStep(context, run, index, value),
+              ),
+            ),
           ),
         if (doneRuns.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -218,12 +246,40 @@ class RunsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           for (final run in doneRuns)
-            RunCard(
-              key: ValueKey(run.id),
-              run: run,
-              onToggle: (index, value) =>
-                  _toggleRunStep(context, run, index, value),
-              onDelete: () => _deleteRun(context, run),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Dismissible(
+                key: ValueKey('dismiss_run_${run.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.only(right: 20),
+                  alignment: Alignment.centerRight,
+                  child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+                ),
+                confirmDismiss: (_) => _confirmDelete(
+                  context,
+                  title: '진행 업무 삭제',
+                  message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
+                ),
+                onDismissed: (_) async {
+                  try {
+                    await store.deleteRun(run.id);
+                  } on Object {
+                    if (context.mounted) {
+                      _showError(context, '진행 업무를 삭제하지 못했습니다.');
+                    }
+                  }
+                },
+                child: RunCard(
+                  run: run,
+                  onToggle: (index, value) =>
+                      _toggleRunStep(context, run, index, value),
+                ),
+              ),
             ),
         ],
       ],
@@ -241,25 +297,6 @@ class RunsView extends StatelessWidget {
     } on Object {
       if (context.mounted) {
         _showError(context, '체크 상태를 저장하지 못했습니다.');
-      }
-    }
-  }
-
-  Future<void> _deleteRun(BuildContext context, WorkRun run) async {
-    final confirmed = await _confirmDelete(
-      context,
-      title: '진행 업무 삭제',
-      message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
-    );
-    if (!confirmed || !context.mounted) {
-      return;
-    }
-
-    try {
-      await store.deleteRun(run.id);
-    } on Object {
-      if (context.mounted) {
-        _showError(context, '진행 업무를 삭제하지 못했습니다.');
       }
     }
   }
@@ -395,12 +432,10 @@ class RunCard extends StatelessWidget {
     super.key,
     required this.run,
     required this.onToggle,
-    required this.onDelete,
   });
 
   final WorkRun run;
   final Future<void> Function(int index, bool value) onToggle;
-  final Future<void> Function() onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -408,7 +443,7 @@ class RunCard extends StatelessWidget {
     final nextUncheckedIndex = run.nextUncheckedIndex;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -437,11 +472,6 @@ class RunCard extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(Icons.check_circle, color: colorScheme.primary),
                   ),
-                IconButton(
-                  tooltip: '삭제',
-                  onPressed: () => onDelete(),
-                  icon: const Icon(Icons.delete_outline),
-                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -554,33 +584,56 @@ class TemplatesView extends StatelessWidget {
       itemBuilder: (context, index) {
         final template = store.templates[index];
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Dismissible(
+            key: ValueKey('dismiss_template_${template.id}'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.only(right: 20),
+              alignment: Alignment.centerRight,
+              child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+            ),
+            confirmDismiss: (_) => _confirmDelete(
+              context,
+              title: '템플릿 삭제',
+              message: '"${template.title}" 템플릿을 삭제할까요?',
+            ),
+            onDismissed: (_) async {
+              try {
+                await store.deleteTemplate(template.id);
+              } on Object {
+                if (context.mounted) {
+                  _showError(context, '템플릿을 삭제하지 못했습니다.');
+                }
+              }
+            },
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        template.title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            template.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '수정',
+                          onPressed: () => _editTemplate(context, template),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      tooltip: '수정',
-                      onPressed: () => _editTemplate(context, template),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                    IconButton(
-                      tooltip: '삭제',
-                      onPressed: () => _deleteTemplate(context, template),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 8),
                 for (var stepIndex = 0;
                     stepIndex < template.steps.length;
@@ -637,28 +690,6 @@ class TemplatesView extends StatelessWidget {
         template: template,
       ),
     );
-  }
-
-  Future<void> _deleteTemplate(
-    BuildContext context,
-    WorkTemplate template,
-  ) async {
-    final confirmed = await _confirmDelete(
-      context,
-      title: '템플릿 삭제',
-      message: '"${template.title}" 템플릿을 삭제할까요?',
-    );
-    if (!confirmed || !context.mounted) {
-      return;
-    }
-
-    try {
-      await store.deleteTemplate(template.id);
-    } on Object {
-      if (context.mounted) {
-        _showError(context, '템플릿을 삭제하지 못했습니다.');
-      }
-    }
   }
 }
 
@@ -725,10 +756,20 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
         ),
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+          child: ReorderableListView(
+            buildDefaultDragHandles: false,
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (oldIndex < newIndex) {
+                  newIndex -= 1;
+                }
+                final item = _stepControllers.removeAt(oldIndex);
+                _stepControllers.insert(newIndex, item);
+              });
+            },
+            header: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _isEditing ? '업무 템플릿 수정' : '업무 템플릿 만들기',
@@ -752,45 +793,12 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                   },
                 ),
                 const SizedBox(height: 12),
-                for (var index = 0; index < _stepControllers.length; index++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _stepControllers[index],
-                            decoration: InputDecoration(
-                              labelText: '체크 항목 ${index + 1}',
-                            ),
-                            maxLength: HanassikStore.maxStepLength,
-                            onChanged: (_) => _clearStepsErrorIfNeeded(),
-                            textInputAction:
-                                index == _stepControllers.length - 1
-                                    ? TextInputAction.done
-                                    : TextInputAction.next,
-                            validator: (value) {
-                              final text = value?.trim() ?? '';
-                              if (text.length > HanassikStore.maxStepLength) {
-                                return '체크 항목은 ${HanassikStore.maxStepLength}자까지 입력할 수 있습니다.';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        if (_stepControllers.length > 1)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8, top: 4),
-                            child: IconButton(
-                              tooltip: '항목 삭제',
-                              onPressed: () => _removeStep(index),
-                              icon: const Icon(Icons.remove_circle_outline),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+              ],
+            ),
+            footer: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 if (_stepsError != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -819,6 +827,55 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                 ),
               ],
             ),
+            children: [
+              for (var index = 0; index < _stepControllers.length; index++)
+                Padding(
+                  key: ObjectKey(_stepControllers[index]),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ReorderableDragStartListener(
+                        index: index,
+                        child: const Padding(
+                          padding: EdgeInsets.only(top: 16, right: 8),
+                          child: Icon(Icons.drag_indicator, color: Colors.grey),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _stepControllers[index],
+                          decoration: InputDecoration(
+                            labelText: '체크 항목 ${index + 1}',
+                          ),
+                          maxLength: HanassikStore.maxStepLength,
+                          onChanged: (_) => _clearStepsErrorIfNeeded(),
+                          textInputAction:
+                              index == _stepControllers.length - 1
+                                  ? TextInputAction.done
+                                  : TextInputAction.next,
+                          validator: (value) {
+                            final text = value?.trim() ?? '';
+                            if (text.length > HanassikStore.maxStepLength) {
+                              return '체크 항목은 ${HanassikStore.maxStepLength}자까지 입력할 수 있습니다.';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      if (_stepControllers.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8, top: 4),
+                          child: IconButton(
+                            tooltip: '항목 삭제',
+                            onPressed: () => _removeStep(index),
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
       ),
