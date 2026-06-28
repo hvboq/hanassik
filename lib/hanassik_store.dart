@@ -158,8 +158,15 @@ class HanassikStore extends ChangeNotifier {
 
     final checked = List<bool>.from(runs[runIndex].checked);
     checked[index] = value;
+
+    final wasDone = runs[runIndex].isDone;
+    final updatedRun = runs[runIndex].copyWith(checked: checked);
     final nextRuns = List<WorkRun>.from(runs);
-    nextRuns[runIndex] = runs[runIndex].copyWith(checked: checked);
+    nextRuns[runIndex] = updatedRun.isDone
+        ? updatedRun.copyWith(
+            endedAt: wasDone ? runs[runIndex].endedAt : DateTime.now(),
+          )
+        : updatedRun.copyWith(clearEndedAt: true);
 
     await _saveRuns(nextRuns);
     runs
@@ -405,6 +412,8 @@ class HanassikStore extends ChangeNotifier {
 
     final startedAt = _normalizeStartedAt(json['startedAt']);
     recovered = recovered || startedAt.recovered;
+    final endedAt = _normalizeEndedAt(json['endedAt']);
+    recovered = recovered || endedAt.recovered;
 
     return _StorageItem(
       WorkRun(
@@ -413,6 +422,7 @@ class HanassikStore extends ChangeNotifier {
         steps: steps,
         checked: checked,
         startedAt: startedAt.value,
+        endedAt: endedAt.value,
       ),
       recovered,
     );
@@ -539,6 +549,21 @@ class HanassikStore extends ChangeNotifier {
     }
 
     return _StorageItem(DateTime.now(), true);
+  }
+
+  static _StorageItem<DateTime?> _normalizeEndedAt(Object? raw) {
+    if (raw == null) {
+      return const _StorageItem(null, false);
+    }
+
+    if (raw is String) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) {
+        return _StorageItem(parsed, false);
+      }
+    }
+
+    return const _StorageItem(null, true);
   }
 
   static Map<String, dynamic>? _asStringKeyedMap(Object? item) {

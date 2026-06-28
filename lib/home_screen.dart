@@ -472,7 +472,7 @@ class RunCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatStartedAt(run.startedAt),
+                        _formatRunTimes(run),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -1074,9 +1074,19 @@ void _showError(BuildContext context, String message) {
   );
 }
 
-String _formatStartedAt(DateTime value) {
+String _formatRunTimes(WorkRun run) {
+  final startedAt = _formatDateTime(run.startedAt);
+  final endedAt = run.endedAt;
+  if (endedAt == null) {
+    return '$startedAt 시작';
+  }
+
+  return '$startedAt 시작 · ${_formatDateTime(endedAt)} 종료';
+}
+
+String _formatDateTime(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
 
   return '${value.year}.${twoDigits(value.month)}.${twoDigits(value.day)} '
-      '${twoDigits(value.hour)}:${twoDigits(value.minute)} 시작';
+      '${twoDigits(value.hour)}:${twoDigits(value.minute)}';
 }

@@ -29,6 +29,12 @@ void main() {
     expect(find.text('남은 항목 5개'), findsOneWidget);
     expect(find.text('다음 할 일'), findsOneWidget);
     expect(find.text('진행 중 1개'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && (widget.data?.endsWith(' 시작') ?? false),
+      ),
+      findsOneWidget,
+    );
     expect(find.byType(CheckboxListTile), findsNWidgets(5));
 
     await tester.tap(find.text('다음 항목 완료'));
@@ -53,6 +59,7 @@ void main() {
     }
 
     expect(find.text('완료된 업무 1개'), findsOneWidget);
+    expect(find.textContaining('종료'), findsOneWidget);
 
     await tester.tap(find.text('완료 기록 정리'));
     await tester.pumpAndSettle();

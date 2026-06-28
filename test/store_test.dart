@@ -243,6 +243,30 @@ void main() {
     expect(store.runs, hasLength(1));
   });
 
+  test('toggleStep records and clears run end time', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final store = HanassikStore(preferences);
+    await store.startRun(
+      WorkTemplate(id: 'timed', title: '시간 기록 업무', steps: ['마무리']),
+    );
+
+    final runId = store.runs.single.id;
+
+    await store.toggleStep(runId, 0, true);
+
+    expect(store.runs.single.isDone, isTrue);
+    expect(store.runs.single.endedAt, isNotNull);
+
+    final savedRuns = jsonDecode(preferences.getString(_runsKey)!) as List;
+    expect(savedRuns.single, contains('endedAt'));
+    expect(savedRuns.single['endedAt'], isA<String>());
+
+    await store.toggleStep(runId, 0, false);
+
+    expect(store.runs.single.isDone, isFalse);
+    expect(store.runs.single.endedAt, isNull);
+  });
+
   test('WorkRun exposes remaining count and next unchecked step', () {
     final run = WorkRun(
       id: 'run',

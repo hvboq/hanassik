@@ -33,6 +33,7 @@ class WorkRun {
     required this.steps,
     required List<bool> checked,
     required this.startedAt,
+    this.endedAt,
   }) : checked = _fitChecked(checked, steps.length);
 
   final String id;
@@ -40,6 +41,7 @@ class WorkRun {
   final List<String> steps;
   final List<bool> checked;
   final DateTime startedAt;
+  final DateTime? endedAt;
 
   int get completedCount {
     var count = 0;
@@ -74,13 +76,18 @@ class WorkRun {
 
   bool get isDone => steps.isNotEmpty && completedCount == steps.length;
 
-  WorkRun copyWith({List<bool>? checked}) {
+  WorkRun copyWith({
+    List<bool>? checked,
+    DateTime? endedAt,
+    bool clearEndedAt = false,
+  }) {
     return WorkRun(
       id: id,
       templateTitle: templateTitle,
       steps: steps,
       checked: checked ?? this.checked,
       startedAt: startedAt,
+      endedAt: clearEndedAt ? null : endedAt ?? this.endedAt,
     );
   }
 
@@ -91,6 +98,7 @@ class WorkRun {
       'steps': steps,
       'checked': checked,
       'startedAt': startedAt.toIso8601String(),
+      'endedAt': endedAt?.toIso8601String(),
     };
   }
 
@@ -108,6 +116,7 @@ class WorkRun {
       ),
       startedAt:
           DateTime.tryParse(_readString(json['startedAt'])) ?? DateTime.now(),
+      endedAt: DateTime.tryParse(_readString(json['endedAt'])),
     );
   }
 }
