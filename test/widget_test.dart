@@ -182,9 +182,12 @@ void main() {
       find.widgetWithText(TextFormField, '체크 항목 1'),
       '수정된 첫 단계',
     );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
 
     final updateButton = find.widgetWithText(FilledButton, '수정');
     await tester.ensureVisible(updateButton);
+    await tester.pumpAndSettle();
     await tester.tap(updateButton);
     await tester.pumpAndSettle();
 
@@ -201,7 +204,12 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, '템플릿'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    final templateDismissible = find.ancestor(
+      of: find.text('신규 고객 온보딩'),
+      matching: find.byType(Dismissible),
+    );
+
+    await tester.drag(templateDismissible, const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(find.text('템플릿 삭제'), findsOneWidget);
@@ -211,7 +219,7 @@ void main() {
 
     expect(find.text('신규 고객 온보딩'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.drag(templateDismissible, const Offset(-500, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('삭제'));
     await tester.pumpAndSettle();

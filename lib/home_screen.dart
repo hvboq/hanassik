@@ -25,14 +25,20 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _storeFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Scaffold(
-            body: LoadErrorState(),
+          return const SafeArea(
+            bottom: false,
+            child: Scaffold(
+              body: LoadErrorState(),
+            ),
           );
         }
 
         if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return const SafeArea(
+            bottom: false,
+            child: Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
           );
         }
 
@@ -79,47 +85,50 @@ class HanassikHome extends StatelessWidget {
               final isTemplatesTab = tabController.index == 1;
               final canShowCreateButton = isTemplatesTab || store.runs.isEmpty;
 
-              return Scaffold(
-                appBar: AppBar(
-                  title: const Text('하나씩'),
-                  bottom: const TabBar(
-                    tabs: [
-                      Tab(text: '진행 업무'),
-                      Tab(text: '템플릿'),
+              return SafeArea(
+                bottom: false,
+                child: Scaffold(
+                  appBar: AppBar(
+                    title: const Text('하나씩'),
+                    bottom: const TabBar(
+                      tabs: [
+                        Tab(text: '진행 업무'),
+                        Tab(text: '템플릿'),
+                      ],
+                    ),
+                  ),
+                  floatingActionButton: canShowCreateButton
+                      ? FloatingActionButton.extended(
+                          onPressed: () => _showTemplateSheet(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('템플릿 만들기'),
+                        )
+                      : null,
+                  body: Column(
+                    children: [
+                      if (store.recoveredFromStorage)
+                        MaterialBanner(
+                          content: const Text(
+                            '일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.',
+                          ),
+                          leading: const Icon(Icons.info_outline),
+                          actions: [
+                            TextButton(
+                              onPressed: store.dismissRecoveryNotice,
+                              child: const Text('확인'),
+                            ),
+                          ],
+                        ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            RunsView(store: store, activeCount: activeCount),
+                            TemplatesView(store: store),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                floatingActionButton: canShowCreateButton
-                    ? FloatingActionButton.extended(
-                        onPressed: () => _showTemplateSheet(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text('템플릿 만들기'),
-                      )
-                    : null,
-                body: Column(
-                  children: [
-                    if (store.recoveredFromStorage)
-                      MaterialBanner(
-                        content: const Text(
-                          '일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.',
-                        ),
-                        leading: const Icon(Icons.info_outline),
-                        actions: [
-                          TextButton(
-                            onPressed: store.dismissRecoveryNotice,
-                            child: const Text('확인'),
-                          ),
-                        ],
-                      ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          RunsView(store: store, activeCount: activeCount),
-                          TemplatesView(store: store),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               );
             },
@@ -204,7 +213,8 @@ class RunsView extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.only(right: 20),
                 alignment: Alignment.centerRight,
-                child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+                child: Icon(Icons.delete,
+                    color: Theme.of(context).colorScheme.onError),
               ),
               confirmDismiss: (_) => _confirmDelete(
                 context,
@@ -258,7 +268,8 @@ class RunsView extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.only(right: 20),
                   alignment: Alignment.centerRight,
-                  child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+                  child: Icon(Icons.delete,
+                      color: Theme.of(context).colorScheme.onError),
                 ),
                 confirmDismiss: (_) => _confirmDelete(
                   context,
@@ -596,7 +607,8 @@ class TemplatesView extends StatelessWidget {
               ),
               padding: const EdgeInsets.only(right: 20),
               alignment: Alignment.centerRight,
-              child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+              child: Icon(Icons.delete,
+                  color: Theme.of(context).colorScheme.onError),
             ),
             confirmDismiss: (_) => _confirmDelete(
               context,
@@ -634,25 +646,27 @@ class TemplatesView extends StatelessWidget {
                         ),
                       ],
                     ),
-                const SizedBox(height: 8),
-                for (var stepIndex = 0;
-                    stepIndex < template.steps.length;
-                    stepIndex++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child:
-                        Text('${stepIndex + 1}. ${template.steps[stepIndex]}'),
-                  ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () => _startRun(context, template),
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('이 템플릿으로 시작'),
-                  ),
+                    const SizedBox(height: 8),
+                    for (var stepIndex = 0;
+                        stepIndex < template.steps.length;
+                        stepIndex++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                            '${stepIndex + 1}. ${template.steps[stepIndex]}'),
+                      ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _startRun(context, template),
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('이 템플릿으로 시작'),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -850,10 +864,9 @@ class _AddTemplateSheetState extends State<AddTemplateSheet> {
                           ),
                           maxLength: HanassikStore.maxStepLength,
                           onChanged: (_) => _clearStepsErrorIfNeeded(),
-                          textInputAction:
-                              index == _stepControllers.length - 1
-                                  ? TextInputAction.done
-                                  : TextInputAction.next,
+                          textInputAction: index == _stepControllers.length - 1
+                              ? TextInputAction.done
+                              : TextInputAction.next,
                           validator: (value) {
                             final text = value?.trim() ?? '';
                             if (text.length > HanassikStore.maxStepLength) {
