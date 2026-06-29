@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 class WorkTemplate {
   WorkTemplate({
     required this.id,
@@ -26,6 +29,58 @@ class WorkTemplate {
   }
 }
 
+class WorkAttachment {
+  WorkAttachment({
+    required this.id,
+    required this.name,
+    required this.dataBase64,
+    this.mimeType,
+  });
+
+  final String id;
+  final String name;
+  final String dataBase64;
+  final String? mimeType;
+
+  bool get isImage => mimeType?.startsWith('image/') ?? false;
+
+  Uint8List get bytes => base64Decode(dataBase64);
+
+  int get byteLength => bytes.lengthInBytes;
+
+  WorkAttachment copyWith({
+    String? id,
+    String? name,
+    String? dataBase64,
+    String? mimeType,
+  }) {
+    return WorkAttachment(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      dataBase64: dataBase64 ?? this.dataBase64,
+      mimeType: mimeType ?? this.mimeType,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'dataBase64': dataBase64,
+      'mimeType': mimeType,
+    };
+  }
+
+  factory WorkAttachment.fromJson(Map<String, dynamic> json) {
+    return WorkAttachment(
+      id: _readString(json['id']),
+      name: _readString(json['name']),
+      dataBase64: _readString(json['dataBase64']),
+      mimeType: _readNullableString(json['mimeType']),
+    );
+  }
+}
+
 class WorkRun {
   WorkRun({
     required this.id,
@@ -33,13 +88,16 @@ class WorkRun {
     required this.steps,
     required List<bool> checked,
     required this.startedAt,
+    List<WorkAttachment> attachments = const [],
     this.endedAt,
-  }) : checked = _fitChecked(checked, steps.length);
+  })  : checked = _fitChecked(checked, steps.length),
+        attachments = List<WorkAttachment>.unmodifiable(attachments);
 
   final String id;
   final String templateTitle;
   final List<String> steps;
   final List<bool> checked;
+  final List<WorkAttachment> attachments;
   final DateTime startedAt;
   final DateTime? endedAt;
 
@@ -78,6 +136,7 @@ class WorkRun {
 
   WorkRun copyWith({
     List<bool>? checked,
+    List<WorkAttachment>? attachments,
     DateTime? endedAt,
     bool clearEndedAt = false,
   }) {
@@ -86,6 +145,7 @@ class WorkRun {
       templateTitle: templateTitle,
       steps: steps,
       checked: checked ?? this.checked,
+      attachments: attachments ?? this.attachments,
       startedAt: startedAt,
       endedAt: clearEndedAt ? null : endedAt ?? this.endedAt,
     );
@@ -97,6 +157,8 @@ class WorkRun {
       'templateTitle': templateTitle,
       'steps': steps,
       'checked': checked,
+      'attachments':
+          attachments.map((attachment) => attachment.toJson()).toList(),
       'startedAt': startedAt.toIso8601String(),
       'endedAt': endedAt?.toIso8601String(),
     };
@@ -114,6 +176,7 @@ class WorkRun {
         steps.length,
         (index) => index < rawChecked.length ? rawChecked[index] : false,
       ),
+      attachments: _readAttachmentList(json['attachments']),
       startedAt:
           DateTime.tryParse(_readString(json['startedAt'])) ?? DateTime.now(),
       endedAt: DateTime.tryParse(_readString(json['endedAt'])),
@@ -128,6 +191,14 @@ String _readString(Object? value) {
   return '';
 }
 
+String? _readNullableString(Object? value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  return null;
+}
+
 List<String> _readStringList(Object? value) {
   if (value is! List) {
     return [];
@@ -137,6 +208,23 @@ List<String> _readStringList(Object? value) {
       .whereType<String>()
       .map((text) => text.trim())
       .where((text) => text.isNotEmpty)
+      .toList();
+}
+
+List<WorkAttachment> _readAttachmentList(Object? value) {
+  if (value is! List) {
+    return [];
+  }
+
+  return value
+      .whereType<Map>()
+      .map((item) => WorkAttachment.fromJson(Map<String, dynamic>.from(item)))
+      .where(
+        (attachment) =>
+            attachment.id.isNotEmpty &&
+            attachment.name.isNotEmpty &&
+            attachment.dataBase64.isNotEmpty,
+      )
       .toList();
 }
 

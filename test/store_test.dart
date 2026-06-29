@@ -267,6 +267,91 @@ void main() {
     expect(store.runs.single.endedAt, isNull);
   });
 
+  test('addAttachments stores valid run attachments and applies limits',
+      () async {
+    final preferences = await SharedPreferences.getInstance();
+    final store = HanassikStore(preferences);
+    await store.startRun(
+      WorkTemplate(id: 'attached', title: '첨부 업무', steps: ['확인']),
+    );
+
+    final runId = store.runs.single.id;
+    final saved = await store.addAttachments(
+      runId,
+      [
+        WorkAttachment(
+          id: 'image',
+          name: '  현장 사진.png  ',
+          dataBase64: base64Encode([1, 2, 3]),
+          mimeType: ' image/png ',
+        ),
+        WorkAttachment(
+          id: 'empty',
+          name: '빈 파일',
+          dataBase64: '',
+        ),
+        for (var index = 0; index < 10; index++)
+          WorkAttachment(
+            id: 'extra-$index',
+            name: '추가 $index.txt',
+            dataBase64: base64Encode([index]),
+            mimeType: 'text/plain',
+          ),
+      ],
+    );
+
+    expect(saved, isTrue);
+    expect(store.runs.single.attachments,
+        hasLength(HanassikStore.maxAttachmentsPerRun));
+    expect(store.runs.single.attachments.first.name, '현장 사진.png');
+    expect(store.runs.single.attachments.first.mimeType, 'image/png');
+
+    final savedRuns = jsonDecode(preferences.getString(_runsKey)!) as List;
+    expect(savedRuns.single['attachments'], isA<List>());
+    expect(savedRuns.single['attachments'],
+        hasLength(HanassikStore.maxAttachmentsPerRun));
+  });
+
+  test('load recovers invalid attachments and removeAttachment deletes one',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      _templatesKey: '[]',
+      _runsKey: jsonEncode([
+        {
+          'id': 'run',
+          'templateTitle': '첨부 복구',
+          'steps': ['확인'],
+          'checked': [false],
+          'startedAt': '2026-06-24T00:00:00.000Z',
+          'attachments': [
+            {
+              'id': 'valid',
+              'name': '사진.jpg',
+              'dataBase64': base64Encode([1, 2, 3]),
+              'mimeType': 'image/jpeg',
+            },
+            {
+              'id': 'broken',
+              'name': '깨진 파일',
+              'dataBase64': 'not-base64',
+            },
+          ],
+        },
+      ]),
+    });
+
+    final store = await HanassikStore.load();
+
+    expect(store.recoveredFromStorage, isTrue);
+    expect(store.runs.single.attachments, hasLength(1));
+    expect(store.runs.single.attachments.single.id, 'valid');
+
+    final removed = await store.removeAttachment('run', 'valid');
+
+    expect(removed, isTrue);
+    expect(store.runs.single.attachments, isEmpty);
+  });
+
   test('WorkRun exposes remaining count and next unchecked step', () {
     final run = WorkRun(
       id: 'run',

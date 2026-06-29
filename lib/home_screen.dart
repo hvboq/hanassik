@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'hanassik_store.dart';
@@ -235,6 +238,9 @@ class RunsView extends StatelessWidget {
                 run: run,
                 onToggle: (index, value) =>
                     _toggleRunStep(context, run, index, value),
+                onAddAttachments: () => _addAttachments(context, run),
+                onRemoveAttachment: (attachment) =>
+                    _removeAttachment(context, run, attachment),
               ),
             ),
           ),
@@ -290,6 +296,9 @@ class RunsView extends StatelessWidget {
                   run: run,
                   onToggle: (index, value) =>
                       _toggleRunStep(context, run, index, value),
+                  onAddAttachments: () => _addAttachments(context, run),
+                  onRemoveAttachment: (attachment) =>
+                      _removeAttachment(context, run, attachment),
                 ),
               ),
             ),
@@ -338,6 +347,87 @@ class RunsView extends StatelessWidget {
     } on Object {
       if (context.mounted) {
         _showError(context, '완료된 업무를 삭제하지 못했습니다.');
+      }
+    }
+  }
+
+  Future<void> _addAttachments(BuildContext context, WorkRun run) async {
+    final remainingSlots =
+        HanassikStore.maxAttachmentsPerRun - run.attachments.length;
+    if (remainingSlots <= 0) {
+      _showError(context,
+          '첨부파일은 업무당 최대 ${HanassikStore.maxAttachmentsPerRun}개까지 가능합니다.');
+      return;
+    }
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final attachments = <WorkAttachment>[];
+      var skippedCount = 0;
+      for (final file in result.files.take(remainingSlots)) {
+        final bytes = file.bytes;
+        if (bytes == null ||
+            bytes.isEmpty ||
+            bytes.lengthInBytes > HanassikStore.maxAttachmentBytes) {
+          skippedCount++;
+          continue;
+        }
+
+        attachments.add(
+          WorkAttachment(
+            id: _newAttachmentId(),
+            name: file.name,
+            dataBase64: base64Encode(bytes),
+            mimeType: _guessMimeType(file.name),
+          ),
+        );
+      }
+
+      if (result.files.length > remainingSlots) {
+        skippedCount += result.files.length - remainingSlots;
+      }
+
+      final saved = await store.addAttachments(run.id, attachments);
+      if (!context.mounted) {
+        return;
+      }
+      if (!saved) {
+        _showError(context, '첨부파일을 저장하지 못했습니다.');
+        return;
+      }
+
+      final message = skippedCount == 0
+          ? '첨부파일 ${attachments.length}개를 추가했습니다.'
+          : '첨부파일 ${attachments.length}개를 추가하고 $skippedCount개는 제외했습니다.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '첨부파일을 선택하지 못했습니다.');
+      }
+    }
+  }
+
+  Future<void> _removeAttachment(
+    BuildContext context,
+    WorkRun run,
+    WorkAttachment attachment,
+  ) async {
+    try {
+      final removed = await store.removeAttachment(run.id, attachment.id);
+      if (context.mounted && !removed) {
+        _showError(context, '첨부파일을 삭제하지 못했습니다.');
+      }
+    } on Object {
+      if (context.mounted) {
+        _showError(context, '첨부파일을 삭제하지 못했습니다.');
       }
     }
   }
@@ -444,10 +534,14 @@ class RunCard extends StatelessWidget {
     super.key,
     required this.run,
     required this.onToggle,
+    required this.onAddAttachments,
+    required this.onRemoveAttachment,
   });
 
   final WorkRun run;
   final Future<void> Function(int index, bool value) onToggle;
+  final Future<void> Function() onAddAttachments;
+  final Future<void> Function(WorkAttachment attachment) onRemoveAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -497,6 +591,12 @@ class RunCard extends StatelessWidget {
                 onComplete: () => onToggle(nextUncheckedIndex, true),
               ),
             ],
+            const SizedBox(height: 12),
+            AttachmentsSection(
+              attachments: run.attachments,
+              onAdd: onAddAttachments,
+              onRemove: onRemoveAttachment,
+            ),
             const Divider(height: 24),
             for (var index = 0; index < run.steps.length; index++)
               CheckboxListTile(
@@ -508,6 +608,132 @@ class RunCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class AttachmentsSection extends StatelessWidget {
+  const AttachmentsSection({
+    super.key,
+    required this.attachments,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<WorkAttachment> attachments;
+  final Future<void> Function() onAdd;
+  final Future<void> Function(WorkAttachment attachment) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final canAdd = attachments.length < HanassikStore.maxAttachmentsPerRun;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '첨부파일 ${attachments.length}/${HanassikStore.maxAttachmentsPerRun}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: canAdd ? onAdd : null,
+              icon: const Icon(Icons.attach_file),
+              label: const Text('첨부'),
+            ),
+          ],
+        ),
+        if (attachments.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final attachment in attachments)
+                AttachmentTile(
+                  attachment: attachment,
+                  onRemove: () => onRemove(attachment),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class AttachmentTile extends StatelessWidget {
+  const AttachmentTile({
+    super.key,
+    required this.attachment,
+    required this.onRemove,
+  });
+
+  final WorkAttachment attachment;
+  final Future<void> Function() onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 132,
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 86,
+            width: double.infinity,
+            child: attachment.isImage
+                ? Image.memory(
+                    attachment.bytes,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, _, __) =>
+                        const Icon(Icons.broken_image_outlined),
+                  )
+                : ColoredBox(
+                    color: colorScheme.surfaceContainerHighest,
+                    child: const Center(
+                      child: Icon(Icons.insert_drive_file_outlined),
+                    ),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 4, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    attachment.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '첨부파일 삭제',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close),
+                  iconSize: 18,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1091,4 +1317,22 @@ String _formatDateTime(DateTime value) {
 
   return '${value.year}.${twoDigits(value.month)}.${twoDigits(value.day)} '
       '${twoDigits(value.hour)}:${twoDigits(value.minute)}';
+}
+
+String _newAttachmentId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+String? _guessMimeType(String fileName) {
+  final extension = fileName.split('.').last.toLowerCase();
+  return switch (extension) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'gif' => 'image/gif',
+    'webp' => 'image/webp',
+    'bmp' => 'image/bmp',
+    'heic' => 'image/heic',
+    'pdf' => 'application/pdf',
+    'txt' => 'text/plain',
+    'csv' => 'text/csv',
+    _ => null,
+  };
 }

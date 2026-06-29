@@ -13,7 +13,10 @@ class HanassikStore extends ChangeNotifier {
 
   static const maxTitleLength = 80;
   static const maxStepLength = 160;
+  static const maxAttachmentNameLength = 120;
   static const maxStepsPerTemplate = 20;
+  static const maxAttachmentsPerRun = 5;
+  static const maxAttachmentBytes = 2 * 1024 * 1024;
   static const maxSavedTemplates = 100;
   static const maxSavedRuns = 100;
 
@@ -173,6 +176,82 @@ class HanassikStore extends ChangeNotifier {
       ..clear()
       ..addAll(nextRuns);
     notifyListeners();
+  }
+
+  Future<bool> addAttachments(
+    String runId,
+    List<WorkAttachment> attachments,
+  ) async {
+    final runIndex = runs.indexWhere((run) => run.id == runId);
+    if (runIndex == -1 || attachments.isEmpty) {
+      return false;
+    }
+
+    final run = runs[runIndex];
+    final remainingSlots = maxAttachmentsPerRun - run.attachments.length;
+    if (remainingSlots <= 0) {
+      return false;
+    }
+
+    final normalizedAttachments = <WorkAttachment>[];
+    final seenIds = {
+      for (final attachment in run.attachments) attachment.id,
+    };
+    for (final attachment in attachments) {
+      if (normalizedAttachments.length == remainingSlots) {
+        break;
+      }
+
+      final normalized = _normalizeAttachment(attachment, seenIds);
+      if (normalized == null) {
+        continue;
+      }
+      normalizedAttachments.add(normalized.value);
+    }
+
+    if (normalizedAttachments.isEmpty) {
+      return false;
+    }
+
+    final nextRuns = List<WorkRun>.from(runs);
+    nextRuns[runIndex] = run.copyWith(
+      attachments: [
+        ...run.attachments,
+        ...normalizedAttachments,
+      ],
+    );
+
+    await _saveRuns(nextRuns);
+    runs
+      ..clear()
+      ..addAll(nextRuns);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> removeAttachment(String runId, String attachmentId) async {
+    final runIndex = runs.indexWhere((run) => run.id == runId);
+    if (runIndex == -1) {
+      return false;
+    }
+
+    final run = runs[runIndex];
+    final nextAttachments = run.attachments
+        .where((attachment) => attachment.id != attachmentId)
+        .toList();
+    if (nextAttachments.length == run.attachments.length) {
+      return false;
+    }
+
+    final nextRuns = List<WorkRun>.from(runs);
+    nextRuns[runIndex] = run.copyWith(attachments: nextAttachments);
+
+    await _saveRuns(nextRuns);
+    runs
+      ..clear()
+      ..addAll(nextRuns);
+    notifyListeners();
+    return true;
   }
 
   Future<void> deleteRun(String id) async {
@@ -414,6 +493,8 @@ class HanassikStore extends ChangeNotifier {
     recovered = recovered || startedAt.recovered;
     final endedAt = _normalizeEndedAt(json['endedAt']);
     recovered = recovered || endedAt.recovered;
+    final attachments = _normalizeAttachments(json['attachments']);
+    recovered = recovered || attachments.recovered;
 
     return _StorageItem(
       WorkRun(
@@ -421,6 +502,7 @@ class HanassikStore extends ChangeNotifier {
         templateTitle: title.value,
         steps: steps,
         checked: checked,
+        attachments: attachments.values,
         startedAt: startedAt.value,
         endedAt: endedAt.value,
       ),
@@ -495,6 +577,92 @@ class HanassikStore extends ChangeNotifier {
     }
 
     return _StorageList(steps, recovered);
+  }
+
+  static _StorageList<WorkAttachment> _normalizeAttachments(Object? raw) {
+    if (raw == null) {
+      return const _StorageList(<WorkAttachment>[], false);
+    }
+    if (raw is! List) {
+      return const _StorageList(<WorkAttachment>[], true);
+    }
+
+    var recovered = false;
+    final attachments = <WorkAttachment>[];
+    final seenIds = <String>{};
+    for (final item in raw) {
+      final json = _asStringKeyedMap(item);
+      if (json == null) {
+        recovered = true;
+        continue;
+      }
+
+      if (attachments.length == maxAttachmentsPerRun) {
+        recovered = true;
+        continue;
+      }
+
+      final attachment = _normalizeAttachment(
+        WorkAttachment.fromJson(json),
+        seenIds,
+      );
+      if (attachment == null) {
+        recovered = true;
+        continue;
+      }
+
+      attachments.add(attachment.value);
+      recovered = recovered || attachment.recovered;
+    }
+
+    return _StorageList(attachments, recovered);
+  }
+
+  static _StorageItem<WorkAttachment>? _normalizeAttachment(
+    WorkAttachment attachment,
+    Set<String> seenIds,
+  ) {
+    var recovered = false;
+
+    final id = _normalizeId(attachment.id, seenIds);
+    recovered = recovered || id.recovered;
+
+    final name = _normalizeRequiredText(
+      attachment.name,
+      maxAttachmentNameLength,
+    );
+    if (name == null) {
+      return null;
+    }
+    recovered = recovered || name.recovered;
+
+    final dataBase64 = attachment.dataBase64.trim();
+    if (dataBase64.isEmpty) {
+      return null;
+    }
+    recovered = recovered || dataBase64 != attachment.dataBase64;
+
+    try {
+      final bytes = base64Decode(dataBase64);
+      if (bytes.isEmpty || bytes.lengthInBytes > maxAttachmentBytes) {
+        return null;
+      }
+    } on FormatException {
+      return null;
+    }
+
+    final mimeType = attachment.mimeType?.trim();
+    recovered = recovered || mimeType != attachment.mimeType;
+
+    return _StorageItem(
+      attachment.copyWith(
+        id: id.value,
+        name: name.value,
+        dataBase64: dataBase64,
+        mimeType: mimeType == null || mimeType.isEmpty ? null : mimeType,
+      ),
+      recovered,
+    );
   }
 
   static _StorageItem<String> _normalizeId(
