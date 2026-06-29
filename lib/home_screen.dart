@@ -142,6 +142,7 @@ class HanassikHome extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => AddTemplateSheet(store: store),
     );
   }
@@ -699,6 +700,7 @@ class TemplatesView extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => AddTemplateSheet(
         store: store,
         template: template,

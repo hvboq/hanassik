@@ -127,6 +127,26 @@ void main() {
     expect(find.text('3. 보고서 공유'), findsOneWidget);
   });
 
+  testWidgets('keeps the template sheet below the top safe area',
+      (tester) async {
+    const topSafeArea = 44.0;
+    final topSafeAreaInPhysicalPixels =
+        topSafeArea * tester.view.devicePixelRatio;
+    tester.view.padding = FakeViewPadding(top: topSafeAreaInPhysicalPixels);
+    tester.view.viewPadding = FakeViewPadding(top: topSafeAreaInPhysicalPixels);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('템플릿 만들기'));
+    await tester.pumpAndSettle();
+
+    final sheetTop = tester.getTopLeft(find.text('업무 템플릿 만들기')).dy;
+
+    expect(sheetTop, greaterThanOrEqualTo(topSafeArea));
+  });
+
   testWidgets('saves a template when any checklist item has text',
       (tester) async {
     await tester.pumpWidget(const HanassikApp());
