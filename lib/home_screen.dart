@@ -238,6 +238,7 @@ class RunsView extends StatelessWidget {
                 run: run,
                 onToggle: (index, value) =>
                     _toggleRunStep(context, run, index, value),
+                onEditDetails: () => _editRunDetails(context, run),
                 onAddAttachments: () => _addAttachments(context, run),
                 onRemoveAttachment: (attachment) =>
                     _removeAttachment(context, run, attachment),
@@ -305,6 +306,27 @@ class RunsView extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _editRunDetails(BuildContext context, WorkRun run) async {
+    final updatedRun = await showModalBottomSheet<_RunDetailsResult>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => EditRunDetailsSheet(
+        store: store,
+        run: run,
+      ),
+    );
+    if (updatedRun == null || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(content: Text('"${updatedRun.title}" 업무 정보를 수정했습니다.')),
+      );
   }
 
   Future<void> _toggleRunStep(
@@ -536,12 +558,14 @@ class RunCard extends StatelessWidget {
     required this.onToggle,
     required this.onAddAttachments,
     required this.onRemoveAttachment,
+    this.onEditDetails,
   });
 
   final WorkRun run;
   final Future<void> Function(int index, bool value) onToggle;
   final Future<void> Function() onAddAttachments;
   final Future<void> Function(WorkAttachment attachment) onRemoveAttachment;
+  final Future<void> Function()? onEditDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -578,6 +602,12 @@ class RunCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onEditDetails != null)
+                  IconButton(
+                    tooltip: '업무 정보 수정',
+                    onPressed: onEditDetails,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
                 if (run.isDone)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
@@ -914,7 +944,7 @@ class TemplatesView extends StatelessWidget {
   }
 
   Future<void> _startRun(BuildContext context, WorkTemplate template) async {
-    final startedRun = await showModalBottomSheet<_StartedRun>(
+    final startedRun = await showModalBottomSheet<_RunDetailsResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -949,7 +979,7 @@ class TemplatesView extends StatelessWidget {
   }
 }
 
-class StartRunSheet extends StatefulWidget {
+class StartRunSheet extends StatelessWidget {
   const StartRunSheet({
     super.key,
     required this.store,
@@ -960,10 +990,79 @@ class StartRunSheet extends StatefulWidget {
   final WorkTemplate template;
 
   @override
-  State<StartRunSheet> createState() => _StartRunSheetState();
+  Widget build(BuildContext context) {
+    return RunDetailsSheet(
+      title: '진행 업무 시작',
+      initialTitle: template.title,
+      initialNote: '',
+      actionLabel: '시작',
+      savingLabel: '시작 중...',
+      actionIcon: Icons.play_arrow,
+      errorMessage: '진행 업무를 시작하지 못했습니다.',
+      onSave: (title, note) async {
+        await store.startRun(template, title: title, note: note);
+        return true;
+      },
+    );
+  }
 }
 
-class _StartRunSheetState extends State<StartRunSheet> {
+class EditRunDetailsSheet extends StatelessWidget {
+  const EditRunDetailsSheet({
+    super.key,
+    required this.store,
+    required this.run,
+  });
+
+  final HanassikStore store;
+  final WorkRun run;
+
+  @override
+  Widget build(BuildContext context) {
+    return RunDetailsSheet(
+      title: '진행 업무 수정',
+      initialTitle: run.title,
+      initialNote: run.note,
+      actionLabel: '저장',
+      savingLabel: '저장 중...',
+      actionIcon: Icons.edit_outlined,
+      errorMessage: '업무 정보를 수정하지 못했습니다.',
+      onSave: (title, note) => store.updateRunDetails(
+        run.id,
+        title: title,
+        note: note,
+      ),
+    );
+  }
+}
+
+class RunDetailsSheet extends StatefulWidget {
+  const RunDetailsSheet({
+    super.key,
+    required this.title,
+    required this.initialTitle,
+    required this.initialNote,
+    required this.actionLabel,
+    required this.savingLabel,
+    required this.actionIcon,
+    required this.errorMessage,
+    required this.onSave,
+  });
+
+  final String title;
+  final String initialTitle;
+  final String initialNote;
+  final String actionLabel;
+  final String savingLabel;
+  final IconData actionIcon;
+  final String errorMessage;
+  final Future<bool> Function(String title, String note) onSave;
+
+  @override
+  State<RunDetailsSheet> createState() => _RunDetailsSheetState();
+}
+
+class _RunDetailsSheetState extends State<RunDetailsSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _noteController;
@@ -972,8 +1071,8 @@ class _StartRunSheetState extends State<StartRunSheet> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.template.title);
-    _noteController = TextEditingController();
+    _titleController = TextEditingController(text: widget.initialTitle);
+    _noteController = TextEditingController(text: widget.initialNote);
   }
 
   @override
@@ -999,7 +1098,7 @@ class _StartRunSheetState extends State<StartRunSheet> {
             shrinkWrap: true,
             children: [
               Text(
-                '진행 업무 시작',
+                widget.title,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
@@ -1039,9 +1138,11 @@ class _StartRunSheetState extends State<StartRunSheet> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _isSaving ? null : _start,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(_isSaving ? '시작 중...' : '시작'),
+                  onPressed: _isSaving ? null : _save,
+                  icon: Icon(widget.actionIcon),
+                  label: Text(
+                    _isSaving ? widget.savingLabel : widget.actionLabel,
+                  ),
                 ),
               ),
             ],
@@ -1051,7 +1152,7 @@ class _StartRunSheetState extends State<StartRunSheet> {
     );
   }
 
-  Future<void> _start() async {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -1061,18 +1162,17 @@ class _StartRunSheetState extends State<StartRunSheet> {
     });
 
     final title = _titleController.text.trim();
+    final note = _noteController.text.trim();
     try {
-      await widget.store.startRun(
-        widget.template,
-        title: title,
-        note: _noteController.text.trim(),
-      );
-      if (mounted) {
-        Navigator.of(context).pop(_StartedRun(title));
+      final saved = await widget.onSave(title, note);
+      if (mounted && saved) {
+        Navigator.of(context).pop(_RunDetailsResult(title));
+      } else if (mounted) {
+        _showError(context, widget.errorMessage);
       }
     } on Object {
       if (mounted) {
-        _showError(context, '진행 업무를 시작하지 못했습니다.');
+        _showError(context, widget.errorMessage);
       }
     } finally {
       if (mounted) {
@@ -1084,8 +1184,8 @@ class _StartRunSheetState extends State<StartRunSheet> {
   }
 }
 
-class _StartedRun {
-  const _StartedRun(this.title);
+class _RunDetailsResult {
+  const _RunDetailsResult(this.title);
 
   final String title;
 }

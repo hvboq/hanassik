@@ -133,6 +133,39 @@ void main() {
     expect(find.text('계약서 확인 후 담당자에게 공유'), findsOneWidget);
   });
 
+  testWidgets('edits an active run title and note', (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이 템플릿으로 시작'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('시작'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('업무 정보 수정'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('진행 업무 수정'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '업무 제목'),
+      '김하나 고객 재방문',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '메모'),
+      '오전 방문 후 사진 첨부 예정',
+    );
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('"김하나 고객 재방문" 업무 정보를 수정했습니다.'), findsOneWidget);
+    expect(find.text('김하나 고객 재방문'), findsOneWidget);
+    expect(find.text('오전 방문 후 사진 첨부 예정'), findsOneWidget);
+    expect(find.text('진행 업무 수정'), findsNothing);
+  });
+
   testWidgets('creates a custom template', (tester) async {
     await tester.pumpWidget(const HanassikApp());
     await tester.pumpAndSettle();

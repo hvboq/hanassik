@@ -11,7 +11,7 @@ run = "flutter pub get"
 
 [tasks."android:sdk:install"]
 description = "Install Android SDK packages required for Flutter Android builds"
-run = 'sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-34" "build-tools;34.0.0"'
+run = 'sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-35" "build-tools;34.0.0"'
 
 [tasks."android:sdk:list"]
 description = "List installed and available Android SDK packages"

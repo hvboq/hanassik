@@ -164,6 +164,36 @@ class HanassikStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> updateRunDetails(
+    String runId, {
+    required String title,
+    required String note,
+  }) async {
+    final runIndex = runs.indexWhere((run) => run.id == runId);
+    if (runIndex == -1 || runs[runIndex].isDone) {
+      return false;
+    }
+
+    final normalizedTitle = _normalizeRequiredText(title, maxTitleLength);
+    if (normalizedTitle == null) {
+      return false;
+    }
+    final normalizedNote = _normalizeOptionalText(note, maxRunNoteLength) ?? '';
+
+    final nextRuns = List<WorkRun>.from(runs);
+    nextRuns[runIndex] = runs[runIndex].copyWith(
+      title: normalizedTitle.value,
+      note: normalizedNote,
+    );
+
+    await _saveRuns(nextRuns);
+    runs
+      ..clear()
+      ..addAll(nextRuns);
+    notifyListeners();
+    return true;
+  }
+
   Future<void> toggleStep(String runId, int index, bool value) async {
     final runIndex = runs.indexWhere((run) => run.id == runId);
     if (runIndex == -1 || index < 0 || index >= runs[runIndex].checked.length) {

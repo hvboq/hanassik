@@ -37,6 +37,8 @@ structure, commands, or product constraints change.
 - Runs:
   - `WorkRun` stores a run-specific `title`, optional `note`, and snapshots the
     template title and steps at start time.
+  - Active run titles and notes can be edited without changing the template
+    snapshot.
   - `checked` is fitted to the current step count during construction.
   - Completing all steps sets `endedAt`; unchecking a completed run clears it.
 - Attachments:

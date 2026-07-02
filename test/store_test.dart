@@ -219,6 +219,51 @@ void main() {
     expect(store.runs, hasLength(HanassikStore.maxSavedRuns));
   });
 
+  test('updateRunDetails edits active run title and note', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final store = HanassikStore(preferences);
+
+    await store.startRun(
+      WorkTemplate(id: 'active', title: '기본 업무', steps: ['확인']),
+    );
+
+    final runId = store.runs.single.id;
+    final updated = await store.updateRunDetails(
+      runId,
+      title: '  현장 점검  ',
+      note: '  사진 확인 후 공유  ',
+    );
+
+    expect(updated, isTrue);
+    expect(store.runs.single.title, '현장 점검');
+    expect(store.runs.single.note, '사진 확인 후 공유');
+
+    final savedRuns = jsonDecode(preferences.getString(_runsKey)!) as List;
+    final savedRun = savedRuns.single as Map<String, dynamic>;
+    expect(savedRun['title'], '현장 점검');
+    expect(savedRun['note'], '사진 확인 후 공유');
+
+    final invalidUpdate = await store.updateRunDetails(
+      runId,
+      title: ' ',
+      note: '무시',
+    );
+
+    expect(invalidUpdate, isFalse);
+    expect(store.runs.single.title, '현장 점검');
+    expect(store.runs.single.note, '사진 확인 후 공유');
+
+    await store.toggleStep(runId, 0, true);
+    final completedUpdate = await store.updateRunDetails(
+      runId,
+      title: '완료 후 수정',
+      note: '',
+    );
+
+    expect(completedUpdate, isFalse);
+    expect(store.runs.single.title, '현장 점검');
+  });
+
   test('deleteCompletedRuns removes only completed runs', () async {
     final preferences = await SharedPreferences.getInstance();
     final store = HanassikStore(preferences);

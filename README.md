@@ -9,6 +9,7 @@ step off as work progresses.
 - Create reusable task templates with ordered steps.
 - Start a checklist run from any saved template with a run-specific title and
   optional note.
+- Edit the title and note of active checklist runs.
 - Check and uncheck steps in an active run.
 - See progress, remaining work, and the next actionable step at a glance.
 - Track progress and completion status.
