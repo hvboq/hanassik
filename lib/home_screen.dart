@@ -223,7 +223,7 @@ class RunsView extends StatelessWidget {
               confirmDismiss: (_) => _confirmDelete(
                 context,
                 title: '진행 업무 삭제',
-                message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
+                message: '"${run.title}" 진행 기록을 삭제할까요?',
               ),
               onDismissed: (_) async {
                 try {
@@ -281,7 +281,7 @@ class RunsView extends StatelessWidget {
                 confirmDismiss: (_) => _confirmDelete(
                   context,
                   title: '진행 업무 삭제',
-                  message: '"${run.templateTitle}" 진행 기록을 삭제할까요?',
+                  message: '"${run.title}" 진행 기록을 삭제할까요?',
                 ),
                 onDismissed: (_) async {
                   try {
@@ -562,8 +562,13 @@ class RunCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        run.templateTitle,
+                        run.title,
                         style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '템플릿: ${run.templateTitle}',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -584,6 +589,13 @@ class RunCard extends StatelessWidget {
             LinearProgressIndicator(value: run.progress),
             const SizedBox(height: 8),
             Text('${run.completedCount}/${run.steps.length} 완료'),
+            if (run.note.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                run.note,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
             if (nextUncheckedIndex != null) ...[
               const SizedBox(height: 12),
               NextStepPanel(
@@ -902,21 +914,23 @@ class TemplatesView extends StatelessWidget {
   }
 
   Future<void> _startRun(BuildContext context, WorkTemplate template) async {
-    try {
-      await store.startRun(template);
-      if (!context.mounted) {
-        return;
-      }
-
-      DefaultTabController.of(context).animateTo(0);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${template.title}" 업무를 시작했습니다.')),
-      );
-    } on Object {
-      if (context.mounted) {
-        _showError(context, '진행 업무를 시작하지 못했습니다.');
-      }
+    final startedRun = await showModalBottomSheet<_StartedRun>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => StartRunSheet(
+        store: store,
+        template: template,
+      ),
+    );
+    if (startedRun == null || !context.mounted) {
+      return;
     }
+
+    DefaultTabController.of(context).animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${startedRun.title}" 업무를 시작했습니다.')),
+    );
   }
 
   Future<void> _editTemplate(
@@ -933,6 +947,147 @@ class TemplatesView extends StatelessWidget {
       ),
     );
   }
+}
+
+class StartRunSheet extends StatefulWidget {
+  const StartRunSheet({
+    super.key,
+    required this.store,
+    required this.template,
+  });
+
+  final HanassikStore store;
+  final WorkTemplate template;
+
+  @override
+  State<StartRunSheet> createState() => _StartRunSheetState();
+}
+
+class _StartRunSheetState extends State<StartRunSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _noteController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.template.title);
+    _noteController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text(
+                '진행 업무 시작',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: '업무 제목'),
+                maxLength: HanassikStore.maxTitleLength,
+                textInputAction: TextInputAction.next,
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) {
+                    return '업무 제목을 입력하세요.';
+                  }
+                  if (text.length > HanassikStore.maxTitleLength) {
+                    return '업무 제목은 ${HanassikStore.maxTitleLength}자까지 입력할 수 있습니다.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _noteController,
+                decoration: const InputDecoration(labelText: '메모'),
+                maxLength: HanassikStore.maxRunNoteLength,
+                maxLines: 5,
+                minLines: 3,
+                textInputAction: TextInputAction.newline,
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.length > HanassikStore.maxRunNoteLength) {
+                    return '메모는 ${HanassikStore.maxRunNoteLength}자까지 입력할 수 있습니다.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isSaving ? null : _start,
+                  icon: const Icon(Icons.play_arrow),
+                  label: Text(_isSaving ? '시작 중...' : '시작'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _start() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final title = _titleController.text.trim();
+    try {
+      await widget.store.startRun(
+        widget.template,
+        title: title,
+        note: _noteController.text.trim(),
+      );
+      if (mounted) {
+        Navigator.of(context).pop(_StartedRun(title));
+      }
+    } on Object {
+      if (mounted) {
+        _showError(context, '진행 업무를 시작하지 못했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+}
+
+class _StartedRun {
+  const _StartedRun(this.title);
+
+  final String title;
 }
 
 class AddTemplateSheet extends StatefulWidget {

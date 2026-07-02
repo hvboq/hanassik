@@ -84,17 +84,21 @@ class WorkAttachment {
 class WorkRun {
   WorkRun({
     required this.id,
+    required this.title,
     required this.templateTitle,
     required this.steps,
     required List<bool> checked,
     required this.startedAt,
     List<WorkAttachment> attachments = const [],
+    this.note = '',
     this.endedAt,
   })  : checked = _fitChecked(checked, steps.length),
         attachments = List<WorkAttachment>.unmodifiable(attachments);
 
   final String id;
+  final String title;
   final String templateTitle;
+  final String note;
   final List<String> steps;
   final List<bool> checked;
   final List<WorkAttachment> attachments;
@@ -135,6 +139,8 @@ class WorkRun {
   bool get isDone => steps.isNotEmpty && completedCount == steps.length;
 
   WorkRun copyWith({
+    String? title,
+    String? note,
     List<bool>? checked,
     List<WorkAttachment>? attachments,
     DateTime? endedAt,
@@ -142,7 +148,9 @@ class WorkRun {
   }) {
     return WorkRun(
       id: id,
+      title: title ?? this.title,
       templateTitle: templateTitle,
+      note: note ?? this.note,
       steps: steps,
       checked: checked ?? this.checked,
       attachments: attachments ?? this.attachments,
@@ -154,7 +162,9 @@ class WorkRun {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'title': title,
       'templateTitle': templateTitle,
+      'note': note,
       'steps': steps,
       'checked': checked,
       'attachments':
@@ -167,10 +177,14 @@ class WorkRun {
   factory WorkRun.fromJson(Map<String, dynamic> json) {
     final steps = _readStringList(json['steps']);
     final rawChecked = _readBoolList(json['checked']);
+    final templateTitle = _readString(json['templateTitle']);
+    final title = _readString(json['title']);
 
     return WorkRun(
       id: _readString(json['id']),
-      templateTitle: _readString(json['templateTitle']),
+      title: title.isEmpty ? templateTitle : title,
+      templateTitle: templateTitle,
+      note: _readString(json['note']),
       steps: steps,
       checked: List<bool>.generate(
         steps.length,

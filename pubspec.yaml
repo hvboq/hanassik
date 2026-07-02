@@ -1,7 +1,7 @@
 name: hanassik
 description: A Flutter MVP for saving reusable work templates and checking off tasks when work starts.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

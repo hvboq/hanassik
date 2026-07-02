@@ -23,9 +23,15 @@ void main() {
 
     await tester.tap(find.text('이 템플릿으로 시작'));
     await tester.pumpAndSettle();
+    expect(find.text('진행 업무 시작'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, '업무 제목'), findsOneWidget);
+
+    await tester.tap(find.text('시작'));
+    await tester.pumpAndSettle();
 
     expect(find.text('"신규 고객 온보딩" 업무를 시작했습니다.'), findsOneWidget);
     expect(find.text('현재 진행 상황'), findsOneWidget);
+    expect(find.text('템플릿: 신규 고객 온보딩'), findsOneWidget);
     expect(find.text('남은 항목 5개'), findsOneWidget);
     expect(find.text('다음 할 일'), findsOneWidget);
     expect(find.text('진행 중 1개'), findsOneWidget);
@@ -51,6 +57,8 @@ void main() {
     await tester.tap(find.widgetWithText(Tab, '템플릿'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('이 템플릿으로 시작'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('시작'));
     await tester.pumpAndSettle();
 
     for (var index = 0; index < 5; index++) {
@@ -97,6 +105,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('일부 저장 데이터가 손상되어 사용할 수 있는 항목만 복구했습니다.'), findsNothing);
+  });
+
+  testWidgets('starts a run with a custom title and note', (tester) async {
+    await tester.pumpWidget(const HanassikApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '템플릿'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이 템플릿으로 시작'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '업무 제목'),
+      '김하나 고객 온보딩',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '메모'),
+      '계약서 확인 후 담당자에게 공유',
+    );
+    await tester.tap(find.text('시작'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('"김하나 고객 온보딩" 업무를 시작했습니다.'), findsOneWidget);
+    expect(find.text('김하나 고객 온보딩'), findsOneWidget);
+    expect(find.text('템플릿: 신규 고객 온보딩'), findsOneWidget);
+    expect(find.text('계약서 확인 후 담당자에게 공유'), findsOneWidget);
   });
 
   testWidgets('creates a custom template', (tester) async {

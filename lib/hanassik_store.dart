@@ -13,6 +13,7 @@ class HanassikStore extends ChangeNotifier {
 
   static const maxTitleLength = 80;
   static const maxStepLength = 160;
+  static const maxRunNoteLength = 1000;
   static const maxAttachmentNameLength = 120;
   static const maxStepsPerTemplate = 20;
   static const maxAttachmentsPerRun = 5;
@@ -125,7 +126,11 @@ class HanassikStore extends ChangeNotifier {
     return true;
   }
 
-  Future<void> startRun(WorkTemplate template) async {
+  Future<void> startRun(
+    WorkTemplate template, {
+    String? title,
+    String note = '',
+  }) async {
     final normalizedTemplate = _buildTemplate(
       title: template.title,
       steps: template.steps,
@@ -135,10 +140,16 @@ class HanassikStore extends ChangeNotifier {
       return;
     }
 
+    final normalizedTitle = _normalizeOptionalText(title, maxTitleLength) ??
+        normalizedTemplate.title;
+    final normalizedNote = _normalizeOptionalText(note, maxRunNoteLength) ?? '';
+
     final nextRuns = [
       WorkRun(
         id: _newId(),
+        title: normalizedTitle,
         templateTitle: normalizedTemplate.title,
+        note: normalizedNote,
         steps: List<String>.from(normalizedTemplate.steps),
         checked: List<bool>.filled(normalizedTemplate.steps.length, false),
         startedAt: DateTime.now(),
@@ -438,14 +449,28 @@ class HanassikStore extends ChangeNotifier {
     final id = _normalizeId(json['id'], seenIds);
     recovered = recovered || id.recovered;
 
-    final title = _normalizeRequiredText(
+    final templateTitle = _normalizeRequiredText(
       json['templateTitle'],
       maxTitleLength,
     );
-    if (title == null) {
+    if (templateTitle == null) {
       return null;
     }
-    recovered = recovered || title.recovered;
+    recovered = recovered || templateTitle.recovered;
+
+    final rawTitle = json.containsKey('title') ? json['title'] : null;
+    final title = _normalizeOptionalText(rawTitle, maxTitleLength);
+    recovered = recovered || rawTitle is String && rawTitle.trim() != title;
+    if (rawTitle != null && rawTitle is! String) {
+      recovered = true;
+    }
+
+    final rawNote = json.containsKey('note') ? json['note'] : null;
+    final note = _normalizeOptionalText(rawNote, maxRunNoteLength);
+    recovered = recovered || rawNote is String && rawNote.trim() != note;
+    if (rawNote != null && rawNote is! String) {
+      recovered = true;
+    }
 
     final rawChecked = json['checked'];
     final checkedSource = rawChecked is List ? rawChecked : const <dynamic>[];
@@ -499,7 +524,9 @@ class HanassikStore extends ChangeNotifier {
     return _StorageItem(
       WorkRun(
         id: id.value,
-        templateTitle: title.value,
+        title: title ?? templateTitle.value,
+        templateTitle: templateTitle.value,
+        note: note ?? '',
         steps: steps,
         checked: checked,
         attachments: attachments.values,
@@ -706,6 +733,21 @@ class HanassikStore extends ChangeNotifier {
     final limited =
         trimmed.length > maxLength ? trimmed.substring(0, maxLength) : trimmed;
     return _StorageItem(limited, raw != limited);
+  }
+
+  static String? _normalizeOptionalText(Object? raw, int maxLength) {
+    if (raw is! String) {
+      return null;
+    }
+
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    return trimmed.length > maxLength
+        ? trimmed.substring(0, maxLength)
+        : trimmed;
   }
 
   static _StorageItem<DateTime> _normalizeStartedAt(Object? raw) {

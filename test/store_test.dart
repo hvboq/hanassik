@@ -89,6 +89,7 @@ void main() {
 
     expect(store.recoveredFromStorage, isTrue);
     expect(store.runs, hasLength(2));
+    expect(store.runs[0].title, '짧은 체크');
     expect(store.runs[0].templateTitle, '짧은 체크');
     expect(store.runs[0].steps, ['첫 번째', '두 번째', '세 번째']);
     expect(store.runs[0].checked, [true, false, false]);
@@ -188,9 +189,13 @@ void main() {
 
     await store.startRun(
       WorkTemplate(id: 'dirty', title: ' $longTitle ', steps: manySteps),
+      title: ' $longTitle ',
+      note: ' ${_repeat('메모', 600)} ',
     );
 
+    expect(store.runs.first.title.length, HanassikStore.maxTitleLength);
     expect(store.runs.first.templateTitle.length, HanassikStore.maxTitleLength);
+    expect(store.runs.first.note.length, HanassikStore.maxRunNoteLength);
     expect(
         store.runs.first.steps, hasLength(HanassikStore.maxStepsPerTemplate));
     expect(
@@ -355,6 +360,7 @@ void main() {
   test('WorkRun exposes remaining count and next unchecked step', () {
     final run = WorkRun(
       id: 'run',
+      title: '점검',
       templateTitle: '점검',
       steps: ['첫 번째', '두 번째', '세 번째'],
       checked: [true, false, false],

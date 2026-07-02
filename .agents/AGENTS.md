@@ -35,7 +35,8 @@ structure, commands, or product constraints change.
   - The step editor uses `ReorderableListView`; keep `ObjectKey` on
     `TextEditingController` rows so text stays with the correct field.
 - Runs:
-  - `WorkRun` snapshots the template title and steps at start time.
+  - `WorkRun` stores a run-specific `title`, optional `note`, and snapshots the
+    template title and steps at start time.
   - `checked` is fitted to the current step count during construction.
   - Completing all steps sets `endedAt`; unchecking a completed run clears it.
 - Attachments:
